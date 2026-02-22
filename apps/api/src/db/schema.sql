@@ -1,0 +1,81 @@
+-- Enable foreign key constraints
+PRAGMA foreign_keys = ON;
+
+-- Session 表
+CREATE TABLE IF NOT EXISTS sessions (
+  id TEXT PRIMARY KEY,
+  admin_token TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  require_moderation INTEGER DEFAULT 0,
+  ttl_days INTEGER DEFAULT 1,
+  expires_at INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  deleted_at INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_deleted_at ON sessions(deleted_at);
+
+-- 问题表
+CREATE TABLE IF NOT EXISTS questions (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  content TEXT NOT NULL,
+  author_id TEXT NOT NULL,
+  author_name TEXT,
+  status TEXT DEFAULT 'pending',
+  is_pinned INTEGER DEFAULT 0,
+  vote_count INTEGER DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_questions_session_id ON questions(session_id);
+CREATE INDEX IF NOT EXISTS idx_questions_status ON questions(status);
+CREATE INDEX IF NOT EXISTS idx_questions_vote_count ON questions(vote_count);
+CREATE INDEX IF NOT EXISTS idx_questions_session_id_status ON questions(session_id, status);
+
+-- 回答表
+CREATE TABLE IF NOT EXISTS answers (
+  id TEXT PRIMARY KEY,
+  question_id TEXT NOT NULL UNIQUE,
+  session_id TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE,
+  FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_answers_question_id ON answers(question_id);
+CREATE INDEX IF NOT EXISTS idx_answers_session_id ON answers(session_id);
+
+-- 投票表
+CREATE TABLE IF NOT EXISTS votes (
+  id TEXT PRIMARY KEY,
+  question_id TEXT NOT NULL,
+  voter_id TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  UNIQUE(question_id, voter_id),
+  FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_votes_question_id ON votes(question_id);
+CREATE INDEX IF NOT EXISTS idx_votes_voter_id ON votes(voter_id);
+
+-- 反应表
+CREATE TABLE IF NOT EXISTS reactions (
+  id TEXT PRIMARY KEY,
+  target_type TEXT NOT NULL,
+  target_id TEXT NOT NULL,
+  emoji TEXT NOT NULL,
+  reactor_id TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  UNIQUE(target_type, target_id, emoji, reactor_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_reactions_target ON reactions(target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_reactions_reactor_id ON reactions(reactor_id);

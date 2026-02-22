@@ -1,0 +1,23 @@
+import { Route } from '@solidjs/router';
+import { lazy } from 'solid-js';
+
+// 懒加载页面
+const Home = lazy(() => import('./pages/Home'));
+const SessionAdmin = lazy(() => import('./pages/SessionAdmin'));
+const SessionPublic = lazy(() => import('./pages/SessionPublic'));
+const SessionProjector = lazy(() => import('./pages/SessionProjector'));
+const SessionEnded = lazy(() => import('./pages/SessionEnded'));
+const NotFound = lazy(() => import('./pages/NotFound'));
+
+export default function App() {
+  return (
+    <>
+      <Route path="/" component={Home} />
+      <Route path="/s/:id/admin" component={SessionAdmin} />
+      <Route path="/s/:id/projector" component={SessionProjector} />
+      <Route path="/s/:id/ended" component={SessionEnded} />
+      <Route path="/s/:id" component={SessionPublic} />
+      <Route path="*" component={NotFound} />
+    </>
+  );
+}
