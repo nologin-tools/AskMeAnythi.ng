@@ -132,7 +132,7 @@ const QuestionCard: Component<QuestionCardProps> = (props) => {
 
               <Show when={showReactions()}>
                 <div class="absolute left-0 top-full mt-2 z-30 bg-white rounded-2xl shadow-xl border border-gray-100 p-3 min-w-[200px] animate-scale-in origin-top-left">
-                  <div class="grid grid-cols-5 gap-1">
+                  <div class="grid grid-cols-5 gap-1 relative z-20">
                     <For each={[...QUICK_REACTIONS, ...COMMON_EMOJIS].slice(0, 10)}>
                       {(emoji) => (
                         <button
