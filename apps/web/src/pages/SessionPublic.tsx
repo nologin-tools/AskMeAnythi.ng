@@ -7,10 +7,10 @@ import FilterBar, { FilterStatus, SortBy } from '../components/FilterBar';
 import ConnectionStatus from '../components/ConnectionStatus';
 import Toast, { showToast } from '../components/Toast';
 import { FullPageLoading } from '../components/Loading';
-import { getSession, getQuestions, createQuestion, toggleVote, toggleReaction } from '../lib/api';
+import { getSession, getQuestions, createQuestion, toggleVote, toggleReaction, getQuestionQuota, QuotaExceededError } from '../lib/api';
 import { createSessionWebSocket } from '../lib/websocket';
 import { sortQuestions } from '../lib/sort';
-import type { Question, QuestionAddedData, QuestionUpdatedData, VoteChangedData, AnswerAddedData, ReactionChangedData } from '@askmeanything/shared';
+import type { Question, QuestionAddedData, QuestionUpdatedData, VoteChangedData, AnswerAddedData, ReactionChangedData, SessionUpdatedData, VisitorQuotaInfo } from '@askmeanything/shared';
 
 const SessionPublic: Component = () => {
   const params = useParams<{ id: string }>();
@@ -20,6 +20,7 @@ const SessionPublic: Component = () => {
   const [sortBy, setSortBy] = createSignal<SortBy>('votes');
   const [questions, setQuestions] = createSignal<Question[]>([]);
   const [connected, setConnected] = createSignal(false);
+  const [quota, setQuota] = createSignal<VisitorQuotaInfo | null>(null);
 
   // ... (Data fetching logic remains the same, omitting for brevity in thought process but keeping in file)
   // Re-implementing logic to ensure functionality
@@ -54,8 +55,18 @@ const SessionPublic: Component = () => {
     }
   };
 
+  const fetchQuota = async () => {
+    try {
+      const q = await getQuestionQuota(params.id);
+      setQuota(q);
+    } catch { /* ignore */ }
+  };
+
   createEffect(() => {
-    if (session()) fetchQuestions();
+    if (session()) {
+      fetchQuestions();
+      fetchQuota();
+    }
   });
 
   createEffect(() => {
@@ -92,6 +103,7 @@ const SessionPublic: Component = () => {
         setQuestions(prev => prev.map(q => q.id === targetId ? { ...q, reactions } : q));
       }
     });
+    ws.on('session_updated', () => fetchQuota());
     ws.on('session_ended', () => navigate(`/s/${params.id}/ended`));
     onCleanup(() => ws.disconnect());
   });
@@ -100,8 +112,14 @@ const SessionPublic: Component = () => {
     try {
       await createQuestion(params.id, { content, authorName });
       session()?.requireModeration ? showToast('Submitted for review', 'info') : showToast('Question added', 'success');
+      fetchQuota();
     } catch (err) {
-      showToast('Failed to submit', 'error');
+      if (err instanceof QuotaExceededError) {
+        setQuota(err.quota);
+        showToast(err.message, 'error');
+      } else {
+        showToast('Failed to submit', 'error');
+      }
     }
   };
 
@@ -178,7 +196,7 @@ const SessionPublic: Component = () => {
         {/* Floating Input - Bottom Fixed */}
         <div class="fixed bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-white via-white/90 to-transparent pt-12">
           <div class="max-w-2xl mx-auto">
-             <QuestionInput onSubmit={handleSubmitQuestion} />
+             <QuestionInput onSubmit={handleSubmitQuestion} quota={quota()} />
           </div>
         </div>
 

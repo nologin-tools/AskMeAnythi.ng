@@ -24,7 +24,7 @@ import {
 import { extractAndStoreToken, getAdminToken, isAdmin } from '../lib/storage';
 import { createSessionWebSocket } from '../lib/websocket';
 import { sortQuestions } from '../lib/sort';
-import { TTL_OPTIONS, DEFAULT_TITLE } from '@askmeanything/shared';
+import { TTL_OPTIONS, DEFAULT_TITLE, RATE_LIMIT_WINDOW_OPTIONS, MAX_QUESTIONS_PER_VISITOR_LIMIT, MAX_RATE_LIMIT_COUNT } from '@askmeanything/shared';
 import type { Question } from '@askmeanything/shared';
 import QRCode from 'qrcode';
 
@@ -115,6 +115,30 @@ const SessionAdmin: Component = () => {
       await updateSession(params.id, { requireModeration: moderation });
       await refetchSession();
       showToast('Moderation updated', 'success');
+    } catch { showToast('Failed to save', 'error'); }
+  };
+
+  const handleMaxQuestionsChange = async (value: number) => {
+    try {
+      await updateSession(params.id, { maxQuestionsPerVisitor: value });
+      await refetchSession();
+      showToast('Question limit updated', 'success');
+    } catch { showToast('Failed to save', 'error'); }
+  };
+
+  const handleRateLimitCountChange = async (value: number) => {
+    try {
+      await updateSession(params.id, { rateLimitCount: value });
+      await refetchSession();
+      showToast('Rate limit updated', 'success');
+    } catch { showToast('Failed to save', 'error'); }
+  };
+
+  const handleRateLimitWindowChange = async (value: number) => {
+    try {
+      await updateSession(params.id, { rateLimitWindow: value });
+      await refetchSession();
+      showToast('Rate limit window updated', 'success');
     } catch { showToast('Failed to save', 'error'); }
   };
 
@@ -323,6 +347,57 @@ const SessionAdmin: Component = () => {
             <div class="w-10 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-black"></div>
           </label>
         </div>
+      </div>
+
+      {/* Question Limits */}
+      <div class="space-y-4 pt-4 border-t border-gray-200">
+        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Question Limits</h3>
+
+        {/* Max questions per visitor */}
+        <div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-600">Per-visitor limit</span>
+            <input
+              type="number"
+              min={0}
+              max={MAX_QUESTIONS_PER_VISITOR_LIMIT}
+              value={session()?.maxQuestionsPerVisitor ?? 0}
+              onChange={(e) => handleMaxQuestionsChange(parseInt(e.currentTarget.value) || 0)}
+              class="w-20 text-sm font-medium text-right bg-gray-50 border border-gray-200 rounded-lg py-1.5 px-2 focus:outline-none focus:ring-2 focus:ring-black/10"
+            />
+          </div>
+          <p class="text-xs text-gray-400 mt-1">Max questions per visitor. 0 = unlimited.</p>
+        </div>
+
+        {/* Rate limit count */}
+        <div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-600">Rate limit</span>
+            <input
+              type="number"
+              min={0}
+              max={MAX_RATE_LIMIT_COUNT}
+              value={session()?.rateLimitCount ?? 0}
+              onChange={(e) => handleRateLimitCountChange(parseInt(e.currentTarget.value) || 0)}
+              class="w-20 text-sm font-medium text-right bg-gray-50 border border-gray-200 rounded-lg py-1.5 px-2 focus:outline-none focus:ring-2 focus:ring-black/10"
+            />
+          </div>
+          <p class="text-xs text-gray-400 mt-1">Max questions per time window. 0 = unlimited.</p>
+        </div>
+
+        {/* Rate limit window */}
+        <Show when={(session()?.rateLimitCount ?? 0) > 0}>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-600">Time window</span>
+            <select
+              value={session()?.rateLimitWindow ?? 60}
+              onChange={(e) => handleRateLimitWindowChange(parseInt(e.currentTarget.value))}
+              class="text-sm font-medium bg-gray-50 border border-gray-200 rounded-lg py-1.5 px-2 focus:outline-none focus:ring-2 focus:ring-black/10 cursor-pointer hover:bg-gray-100 transition-colors"
+            >
+              {RATE_LIMIT_WINDOW_OPTIONS.map(opt => <option value={opt.value}>{opt.label}</option>)}
+            </select>
+          </div>
+        </Show>
       </div>
 
       {/* Danger Zone */}

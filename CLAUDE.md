@@ -28,8 +28,10 @@ pnpm build                  # 构建所有应用
 pnpm --filter api deploy    # 部署 API 到 Cloudflare
 
 # 数据库
-pnpm db:migrate             # 本地数据库迁移
-pnpm --filter api db:migrate:remote  # 远程数据库迁移
+pnpm db:migrate             # 本地数据库迁移（全量）
+pnpm --filter api db:migrate:remote  # 远程数据库迁移（全量）
+pnpm --filter api db:migrate:limits  # 本地：提问限制迁移
+pnpm --filter api db:migrate:limits:remote  # 远程：提问限制迁移
 
 # 检查
 pnpm lint                   # 全量 TypeScript 类型检查
@@ -56,7 +58,8 @@ AskMeAnythi.ng/
 │   │   │   ├── durable-objects/
 │   │   │   │   └── session-room.ts   # WebSocket Durable Object
 │   │   │   └── db/
-│   │   │       └── schema.sql        # D1 数据库 Schema
+│   │   │       ├── schema.sql        # D1 数据库 Schema
+│   │   │       └── 0001_add_question_limits.sql  # 提问限制迁移
 │   │   └── wrangler.toml             # Workers 配置
 │   │
 │   └── web/                          # 前端应用 (SolidJS)
@@ -117,7 +120,7 @@ AskMeAnythi.ng/
 
 | 模型 | 说明 | 状态/生命周期 |
 |------|------|--------------|
-| **Session** | AMA 活动房间 | TTL 1-7 天，到期自动失效 |
+| **Session** | AMA 活动房间 | TTL 1-7 天，到期自动失效；支持每访客提问总量限制和速率限制 |
 | **Question** | 访客提交的问题 | `pending` → `approved` → `answered` / `rejected` |
 | **Answer** | 管理员对问题的回答 | 每个问题最多一个回答，支持 Markdown |
 | **Vote** | 问题的点赞 | 每个访客对每个问题最多一票，可切换 |
@@ -167,7 +170,8 @@ AskMeAnythi.ng/
 | 方法 | 路径 | 认证 | 说明 |
 |------|------|------|------|
 | `GET` | `/api/questions/session/:sessionId` | — | 获取问题列表（过滤、排序、分页） |
-| `POST` | `/api/questions/session/:sessionId` | Visitor | 创建问题 |
+| `GET` | `/api/questions/session/:sessionId/quota` | Visitor | 获取当前访客的提问配额 |
+| `POST` | `/api/questions/session/:sessionId` | Visitor | 创建问题（受配额限制：403=总量超限，429=速率超限） |
 | `PATCH` | `/api/questions/:id` | Admin | 更新问题状态/置顶 |
 | `DELETE` | `/api/questions/:id` | Admin | 删除问题 |
 
@@ -235,6 +239,13 @@ AskMeAnythi.ng/
 | `MIN_TTL_DAYS` | 1 | 最小 TTL 天数 |
 | `VALID_QUESTION_STATUSES` | `['pending', 'approved', 'answered', 'rejected']` | 合法的问题状态枚举 |
 | `ADMIN_TOKEN_PATTERN` | `/^[A-Za-z0-9_-]{20,64}$/` | 管理员 Token 格式正则 |
+| `DEFAULT_MAX_QUESTIONS_PER_VISITOR` | 0 | 默认每访客提问上限（0=不限） |
+| `DEFAULT_RATE_LIMIT_COUNT` | 0 | 默认速率限制数量（0=不限） |
+| `DEFAULT_RATE_LIMIT_WINDOW` | 60 | 默认速率限制时间窗口（秒） |
+| `MAX_QUESTIONS_PER_VISITOR_LIMIT` | 1000 | 每访客提问上限配置上界 |
+| `MAX_RATE_LIMIT_COUNT` | 100 | 速率限制数量配置上界 |
+| `MIN_RATE_LIMIT_WINDOW` | 10 | 最小速率限制窗口（秒） |
+| `MAX_RATE_LIMIT_WINDOW` | 3600 | 最大速率限制窗口（秒） |
 
 ### 安全设计
 - **SQL 注入防护**：所有数据库查询使用参数化绑定（`bind()`）

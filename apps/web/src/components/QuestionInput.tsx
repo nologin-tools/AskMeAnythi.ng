@@ -2,11 +2,13 @@ import { Component, createSignal, Show } from 'solid-js';
 import Avatar from './Avatar';
 import { getVisitorId } from '../lib/storage';
 import { MAX_QUESTION_LENGTH } from '@askmeanything/shared';
+import type { VisitorQuotaInfo } from '@askmeanything/shared';
 
 interface QuestionInputProps {
   onSubmit: (content: string, authorName?: string) => Promise<void>;
   disabled?: boolean;
   placeholder?: string;
+  quota?: VisitorQuotaInfo | null;
 }
 
 const QuestionInput: Component<QuestionInputProps> = (props) => {
@@ -17,9 +19,11 @@ const QuestionInput: Component<QuestionInputProps> = (props) => {
 
   const visitorId = getVisitorId();
 
+  const quotaDisabled = () => props.quota?.canAsk === false;
+
   const handleSubmit = async () => {
     const text = content().trim();
-    if (!text || submitting()) return;
+    if (!text || submitting() || quotaDisabled()) return;
 
     setSubmitting(true);
     try {
@@ -40,7 +44,24 @@ const QuestionInput: Component<QuestionInputProps> = (props) => {
 
   return (
     <div class="px-4 pb-6">
-      <div 
+      {/* Quota status message */}
+      <Show when={props.quota && (props.quota.totalLimit > 0 || props.quota.rateLimitCount > 0)}>
+        <div class="max-w-2xl mx-auto mb-2 px-4">
+          <Show when={quotaDisabled()}>
+            <p class="text-xs text-red-500 font-medium">
+              {props.quota!.totalLimit > 0 && props.quota!.totalRemaining <= 0
+                ? `You've reached the limit of ${props.quota!.totalLimit} questions`
+                : `Rate limit exceeded. Please wait and try again`}
+            </p>
+          </Show>
+          <Show when={!quotaDisabled() && props.quota!.totalLimit > 0}>
+            <p class="text-xs text-gray-400">
+              {props.quota!.totalRemaining} question{props.quota!.totalRemaining !== 1 ? 's' : ''} remaining
+            </p>
+          </Show>
+        </div>
+      </Show>
+      <div
         class="max-w-2xl mx-auto bg-white rounded-[2rem] shadow-float border border-gray-100 transition-all duration-300 overflow-hidden"
         classList={{
           'p-2': !isExpanded(),
@@ -71,8 +92,8 @@ const QuestionInput: Component<QuestionInputProps> = (props) => {
                     onInput={(e) => setContent(e.currentTarget.value)}
                     onKeyDown={handleKeyDown}
                     onFocus={() => setIsExpanded(true)}
-                    placeholder={props.placeholder || "Ask a question..."}
-                    disabled={props.disabled || submitting()}
+                    placeholder={quotaDisabled() ? "Question limit reached" : (props.placeholder || "Ask a question...")}
+                    disabled={props.disabled || submitting() || quotaDisabled()}
                     maxLength={MAX_QUESTION_LENGTH}
                     rows={1}
                     class="w-full bg-transparent border-none focus:ring-0 text-base text-gray-900 placeholder-gray-400 resize-none py-3 px-1 min-h-[48px]"
@@ -94,11 +115,11 @@ const QuestionInput: Component<QuestionInputProps> = (props) => {
 
                   <button
                     onClick={handleSubmit}
-                    disabled={!content().trim() || props.disabled || submitting()}
+                    disabled={!content().trim() || props.disabled || submitting() || quotaDisabled()}
                     class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ml-2"
                     classList={{
-                       'bg-black text-white hover:scale-105': content().trim().length > 0 && !submitting(),
-                       'bg-gray-100 text-gray-300': !content().trim() || submitting()
+                       'bg-black text-white hover:scale-105': content().trim().length > 0 && !submitting() && !quotaDisabled(),
+                       'bg-gray-100 text-gray-300': !content().trim() || submitting() || quotaDisabled()
                     }}
                   >
                      <Show when={!submitting()} fallback={<div class="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin"/>}>

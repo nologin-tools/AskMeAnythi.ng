@@ -11,10 +11,22 @@ import type {
   CreateReactionRequest,
   ReactionSummary,
   ApiResponse,
+  VisitorQuotaInfo,
 } from '@askmeanything/shared';
 import { getVisitorId, getAdminToken } from './storage';
 
 const API_BASE = '/api';
+
+// Quota exceeded error with quota info and HTTP status
+export class QuotaExceededError extends Error {
+  quota: VisitorQuotaInfo;
+  status: number;
+  constructor(message: string, quota: VisitorQuotaInfo, status: number) {
+    super(message);
+    this.quota = quota;
+    this.status = status;
+  }
+}
 
 // 通用请求函数
 async function request<T>(
@@ -126,10 +138,30 @@ export async function getQuestions(
 }
 
 export async function createQuestion(sessionId: string, data: CreateQuestionRequest): Promise<Question> {
-  return request<Question>(`/questions/session/${sessionId}`, {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const visitorId = getVisitorId();
+  if (visitorId) headers['X-Visitor-Id'] = visitorId;
+
+  const response = await fetch(`${API_BASE}/questions/session/${sessionId}`, {
     method: 'POST',
+    headers,
     body: JSON.stringify(data),
   });
+
+  const result = await response.json() as ApiResponse<Question> & { data?: { quota?: VisitorQuotaInfo } };
+
+  if (!result.success) {
+    if ((response.status === 403 || response.status === 429) && result.data?.quota) {
+      throw new QuotaExceededError(result.error || 'Quota exceeded', result.data.quota, response.status);
+    }
+    throw new Error(result.error || 'Request failed');
+  }
+
+  return result.data as Question;
+}
+
+export async function getQuestionQuota(sessionId: string): Promise<VisitorQuotaInfo> {
+  return request<VisitorQuotaInfo>(`/questions/session/${sessionId}/quota`);
 }
 
 export async function updateQuestion(
