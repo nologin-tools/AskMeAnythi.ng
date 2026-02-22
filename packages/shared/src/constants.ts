@@ -31,6 +31,22 @@ export const MAX_EMOJI_LENGTH = 10;
 export const DEFAULT_PAGE_SIZE = 50;
 export const MAX_PAGE_SIZE = 100;
 
+// Per-visitor question limits
+export const DEFAULT_MAX_QUESTIONS_PER_VISITOR = 0; // 0 = unlimited
+export const DEFAULT_RATE_LIMIT_COUNT = 0; // 0 = unlimited
+export const DEFAULT_RATE_LIMIT_WINDOW = 60; // seconds
+export const MAX_QUESTIONS_PER_VISITOR_LIMIT = 1000;
+export const MAX_RATE_LIMIT_COUNT = 100;
+export const MIN_RATE_LIMIT_WINDOW = 10;
+export const MAX_RATE_LIMIT_WINDOW = 3600;
+export const RATE_LIMIT_WINDOW_OPTIONS = [
+  { value: 60, label: '1 minute' },
+  { value: 300, label: '5 minutes' },
+  { value: 600, label: '10 minutes' },
+  { value: 1800, label: '30 minutes' },
+  { value: 3600, label: '1 hour' },
+] as const;
+
 // 默认标题
 export const DEFAULT_TITLE = 'Untitled Session';
 

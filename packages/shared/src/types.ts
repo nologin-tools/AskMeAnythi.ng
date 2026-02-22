@@ -14,6 +14,9 @@ export interface Session {
   description?: string;
   requireModeration: boolean;
   ttlDays: number;
+  maxQuestionsPerVisitor: number;
+  rateLimitCount: number;
+  rateLimitWindow: number;
   expiresAt: number;
   createdAt: number;
   updatedAt: number;
@@ -25,6 +28,9 @@ export interface CreateSessionRequest {
   description?: string;
   requireModeration?: boolean;
   ttlDays?: number;
+  maxQuestionsPerVisitor?: number;
+  rateLimitCount?: number;
+  rateLimitWindow?: number;
 }
 
 // 创建 Session 响应
@@ -41,6 +47,9 @@ export interface UpdateSessionRequest {
   description?: string;
   requireModeration?: boolean;
   ttlDays?: number;
+  maxQuestionsPerVisitor?: number;
+  rateLimitCount?: number;
+  rateLimitWindow?: number;
 }
 
 // 问题类型
@@ -202,4 +211,16 @@ export interface ListQuestionsResponse {
   questions: Question[];
   total: number;
   hasMore: boolean;
+}
+
+// 访客配额信息
+export interface VisitorQuotaInfo {
+  totalLimit: number;
+  totalUsed: number;
+  totalRemaining: number;
+  rateLimitCount: number;
+  rateLimitWindow: number;
+  rateUsed: number;
+  rateRemaining: number;
+  canAsk: boolean;
 }
