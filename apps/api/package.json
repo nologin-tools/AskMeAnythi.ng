@@ -8,7 +8,9 @@
     "deploy": "wrangler deploy",
     "lint": "tsc --noEmit",
     "db:migrate": "wrangler d1 execute askmeanything-db --local --file=./src/db/schema.sql",
-    "db:migrate:remote": "wrangler d1 execute askmeanything-db --remote --file=./src/db/schema.sql"
+    "db:migrate:remote": "wrangler d1 execute askmeanything-db --remote --file=./src/db/schema.sql",
+    "db:migrate:limits": "wrangler d1 execute askmeanything-db --local --file=./src/db/0001_add_question_limits.sql",
+    "db:migrate:limits:remote": "wrangler d1 execute askmeanything-db --remote --file=./src/db/0001_add_question_limits.sql"
   },
   "dependencies": {
     "@askmeanything/shared": "workspace:*",

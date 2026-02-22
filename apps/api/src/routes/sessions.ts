@@ -9,6 +9,13 @@ import {
   MAX_TTL_DAYS,
   MAX_TITLE_LENGTH,
   MAX_DESCRIPTION_LENGTH,
+  DEFAULT_MAX_QUESTIONS_PER_VISITOR,
+  DEFAULT_RATE_LIMIT_COUNT,
+  DEFAULT_RATE_LIMIT_WINDOW,
+  MAX_QUESTIONS_PER_VISITOR_LIMIT,
+  MAX_RATE_LIMIT_COUNT,
+  MIN_RATE_LIMIT_WINDOW,
+  MAX_RATE_LIMIT_WINDOW,
 } from '@askmeanything/shared';
 import type {
   Session,
@@ -29,6 +36,9 @@ function rowToSession(row: SessionRow): Session {
     description: row.description ?? undefined,
     requireModeration: row.require_moderation === 1,
     ttlDays: row.ttl_days,
+    maxQuestionsPerVisitor: row.max_questions_per_visitor ?? 0,
+    rateLimitCount: row.rate_limit_count ?? 0,
+    rateLimitWindow: row.rate_limit_window ?? 60,
     expiresAt: row.expires_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -37,6 +47,10 @@ function rowToSession(row: SessionRow): Session {
 
 function clampTtlDays(value: number | undefined): number {
   return Math.max(MIN_TTL_DAYS, Math.min(value ?? DEFAULT_TTL_DAYS, MAX_TTL_DAYS));
+}
+
+function clampInt(value: number | undefined, defaultVal: number, min: number, max: number): number {
+  return Math.max(min, Math.min(value ?? defaultVal, max));
 }
 
 // 创建活动
@@ -62,6 +76,9 @@ sessionsRouter.post('/', async (c) => {
   const ttlDays = clampTtlDays(body.ttlDays);
   const expiresAt = now + ttlDays * 24 * 60 * 60 * 1000;
   const title = body.title?.trim() || DEFAULT_TITLE;
+  const maxQuestionsPerVisitor = clampInt(body.maxQuestionsPerVisitor, DEFAULT_MAX_QUESTIONS_PER_VISITOR, 0, MAX_QUESTIONS_PER_VISITOR_LIMIT);
+  const rateLimitCount = clampInt(body.rateLimitCount, DEFAULT_RATE_LIMIT_COUNT, 0, MAX_RATE_LIMIT_COUNT);
+  const rateLimitWindow = clampInt(body.rateLimitWindow, DEFAULT_RATE_LIMIT_WINDOW, MIN_RATE_LIMIT_WINDOW, MAX_RATE_LIMIT_WINDOW);
 
   // Retry on session ID collision (up to 3 attempts)
   let id = '';
@@ -69,8 +86,8 @@ sessionsRouter.post('/', async (c) => {
     id = generateSessionId();
     try {
       await c.env.DB.prepare(`
-        INSERT INTO sessions (id, admin_token, title, description, require_moderation, ttl_days, expires_at, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO sessions (id, admin_token, title, description, require_moderation, ttl_days, max_questions_per_visitor, rate_limit_count, rate_limit_window, expires_at, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
         id,
         adminToken,
@@ -78,6 +95,9 @@ sessionsRouter.post('/', async (c) => {
         body.description ?? null,
         body.requireModeration ? 1 : 0,
         ttlDays,
+        maxQuestionsPerVisitor,
+        rateLimitCount,
+        rateLimitWindow,
         expiresAt,
         now,
         now
@@ -97,6 +117,9 @@ sessionsRouter.post('/', async (c) => {
     description: body.description,
     requireModeration: body.requireModeration ?? false,
     ttlDays,
+    maxQuestionsPerVisitor,
+    rateLimitCount,
+    rateLimitWindow,
     expiresAt,
     createdAt: now,
     updatedAt: now,
@@ -250,6 +273,18 @@ sessionsRouter.patch('/:id', async (c) => {
       updates.push('ttl_days = ?', 'expires_at = ?');
       values.push(ttlDays, newExpiresAt);
     }
+  }
+  if (body.maxQuestionsPerVisitor !== undefined) {
+    updates.push('max_questions_per_visitor = ?');
+    values.push(clampInt(body.maxQuestionsPerVisitor, DEFAULT_MAX_QUESTIONS_PER_VISITOR, 0, MAX_QUESTIONS_PER_VISITOR_LIMIT));
+  }
+  if (body.rateLimitCount !== undefined) {
+    updates.push('rate_limit_count = ?');
+    values.push(clampInt(body.rateLimitCount, DEFAULT_RATE_LIMIT_COUNT, 0, MAX_RATE_LIMIT_COUNT));
+  }
+  if (body.rateLimitWindow !== undefined) {
+    updates.push('rate_limit_window = ?');
+    values.push(clampInt(body.rateLimitWindow, DEFAULT_RATE_LIMIT_WINDOW, MIN_RATE_LIMIT_WINDOW, MAX_RATE_LIMIT_WINDOW));
   }
 
   values.push(id);

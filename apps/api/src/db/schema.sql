@@ -9,6 +9,9 @@ CREATE TABLE IF NOT EXISTS sessions (
   description TEXT,
   require_moderation INTEGER DEFAULT 0,
   ttl_days INTEGER DEFAULT 1,
+  max_questions_per_visitor INTEGER DEFAULT 0,
+  rate_limit_count INTEGER DEFAULT 0,
+  rate_limit_window INTEGER DEFAULT 60,
   expires_at INTEGER NOT NULL,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
@@ -37,6 +40,7 @@ CREATE INDEX IF NOT EXISTS idx_questions_session_id ON questions(session_id);
 CREATE INDEX IF NOT EXISTS idx_questions_status ON questions(status);
 CREATE INDEX IF NOT EXISTS idx_questions_vote_count ON questions(vote_count);
 CREATE INDEX IF NOT EXISTS idx_questions_session_id_status ON questions(session_id, status);
+CREATE INDEX IF NOT EXISTS idx_questions_session_author_created ON questions(session_id, author_id, created_at);
 
 -- 回答表
 CREATE TABLE IF NOT EXISTS answers (

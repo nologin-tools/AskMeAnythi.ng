@@ -16,6 +16,7 @@ import type {
   ListQuestionsResponse,
   ApiResponse,
   ReactionSummary,
+  VisitorQuotaInfo,
 } from '@askmeanything/shared';
 import { verifyAdminToken } from '../utils/auth';
 
@@ -134,6 +135,58 @@ async function getBatchReactionsSummary(
   }
 
   return result;
+}
+
+// 检查访客配额
+async function checkVisitorQuota(
+  db: D1Database,
+  sessionId: string,
+  visitorId: string,
+  session: SessionRow
+): Promise<VisitorQuotaInfo> {
+  const maxTotal = session.max_questions_per_visitor ?? 0;
+  const rateCount = session.rate_limit_count ?? 0;
+  const rateWindow = session.rate_limit_window ?? 60;
+
+  // Build batch queries
+  const queries = [];
+
+  // Total count query
+  queries.push(
+    db.prepare(
+      'SELECT COUNT(*) as count FROM questions WHERE session_id = ? AND author_id = ?'
+    ).bind(sessionId, visitorId)
+  );
+
+  // Rate window count query
+  const windowStart = Date.now() - rateWindow * 1000;
+  queries.push(
+    db.prepare(
+      'SELECT COUNT(*) as count FROM questions WHERE session_id = ? AND author_id = ? AND created_at > ?'
+    ).bind(sessionId, visitorId, windowStart)
+  );
+
+  const [totalResult, rateResult] = await db.batch(queries);
+  const totalUsed = (totalResult.results?.[0] as any)?.count ?? 0;
+  const rateUsed = (rateResult.results?.[0] as any)?.count ?? 0;
+
+  const totalRemaining = maxTotal > 0 ? Math.max(0, maxTotal - totalUsed) : -1;
+  const rateRemaining = rateCount > 0 ? Math.max(0, rateCount - rateUsed) : -1;
+
+  const canAsk =
+    (maxTotal === 0 || totalUsed < maxTotal) &&
+    (rateCount === 0 || rateUsed < rateCount);
+
+  return {
+    totalLimit: maxTotal,
+    totalUsed,
+    totalRemaining: totalRemaining === -1 ? -1 : totalRemaining,
+    rateLimitCount: rateCount,
+    rateLimitWindow: rateWindow,
+    rateUsed,
+    rateRemaining: rateRemaining === -1 ? -1 : rateRemaining,
+    canAsk,
+  };
 }
 
 // 获取问题列表
@@ -292,6 +345,23 @@ questionsRouter.post('/session/:sessionId', async (c) => {
     }, 410);
   }
 
+  // Check visitor quota
+  const quota = await checkVisitorQuota(c.env.DB, sessionId, visitorId, session);
+  if (!quota.canAsk) {
+    if (quota.totalLimit > 0 && quota.totalUsed >= quota.totalLimit) {
+      return c.json<ApiResponse<{ quota: VisitorQuotaInfo }>>({
+        success: false,
+        error: `You have reached the maximum of ${quota.totalLimit} questions for this session`,
+        data: { quota },
+      }, 403);
+    }
+    return c.json<ApiResponse<{ quota: VisitorQuotaInfo }>>({
+      success: false,
+      error: `Rate limit exceeded. Please wait before asking another question`,
+      data: { quota },
+    }, 429);
+  }
+
   const id = generateUniqueId();
   const now = Date.now();
   // 如果需要预审核，状态为 pending；否则为 approved
@@ -430,6 +500,37 @@ questionsRouter.patch('/:id', async (c) => {
   return c.json<ApiResponse<{ updated: true }>>({
     success: true,
     data: { updated: true },
+  });
+});
+
+// 获取访客配额
+questionsRouter.get('/session/:sessionId/quota', async (c) => {
+  const sessionId = c.req.param('sessionId');
+  const visitorId = c.req.header('X-Visitor-Id');
+
+  if (!visitorId) {
+    return c.json<ApiResponse<null>>({
+      success: false,
+      error: 'Visitor ID required',
+    }, 400);
+  }
+
+  const session = await c.env.DB.prepare(
+    'SELECT * FROM sessions WHERE id = ? AND deleted_at IS NULL'
+  ).bind(sessionId).first<SessionRow>();
+
+  if (!session) {
+    return c.json<ApiResponse<null>>({
+      success: false,
+      error: 'Session not found',
+    }, 404);
+  }
+
+  const quota = await checkVisitorQuota(c.env.DB, sessionId, visitorId, session);
+
+  return c.json<ApiResponse<VisitorQuotaInfo>>({
+    success: true,
+    data: quota,
   });
 });
 

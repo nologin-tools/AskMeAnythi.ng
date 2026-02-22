@@ -16,6 +16,9 @@ export interface SessionRow {
   description: string | null;
   require_moderation: number;
   ttl_days: number;
+  max_questions_per_visitor: number;
+  rate_limit_count: number;
+  rate_limit_window: number;
   expires_at: number;
   created_at: number;
   updated_at: number;
