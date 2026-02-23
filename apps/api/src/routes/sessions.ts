@@ -25,6 +25,7 @@ import type {
   ApiResponse,
 } from '@askmeanything/shared';
 import { verifyAdminToken } from '../utils/auth';
+import { verifyTurnstileToken } from '../utils/turnstile';
 import { checkRateLimit } from '../middleware/rate-limit';
 
 export const sessionsRouter = new Hono<{ Bindings: Env }>();
@@ -63,6 +64,18 @@ sessionsRouter.post('/', async (c) => {
   }
 
   const body: CreateSessionRequest = await c.req.json<CreateSessionRequest>().catch(() => ({}));
+
+  // Turnstile verification (skip in development or if secret not configured)
+  if (c.env.TURNSTILE_SECRET_KEY && c.env.ENVIRONMENT === 'production') {
+    if (!body.turnstileToken) {
+      return c.json<ApiResponse<null>>({ success: false, error: 'Human verification required' }, 400);
+    }
+    const ip = c.req.header('CF-Connecting-IP') || undefined;
+    const valid = await verifyTurnstileToken(body.turnstileToken, c.env.TURNSTILE_SECRET_KEY, ip);
+    if (!valid) {
+      return c.json<ApiResponse<null>>({ success: false, error: 'Human verification failed' }, 403);
+    }
+  }
 
   if (body.title && body.title.length > MAX_TITLE_LENGTH) {
     return c.json<ApiResponse<null>>({

@@ -56,7 +56,8 @@ AskMeAnythi.ng/
 │   │   │   ├── middleware/
 │   │   │   │   └── rate-limit.ts     # IP-based rate limiting middleware
 │   │   │   ├── utils/
-│   │   │   │   └── auth.ts           # Shared admin token verification
+│   │   │   │   ├── auth.ts           # Shared admin token verification
+│   │   │   │   └── turnstile.ts      # Cloudflare Turnstile verification
 │   │   │   ├── routes/               # API routes
 │   │   │   │   ├── sessions.ts       # Session CRUD
 │   │   │   │   ├── questions.ts      # Question CRUD
@@ -280,6 +281,7 @@ AskMeAnythi.ng/
 - **WebSocket security**: Validates session exists and is not expired before connection
 - **Scheduled cleanup**: Uses `DB.batch()` for atomic cleanup, processes in batches to prevent parameter overflow (50 per batch)
 - **IP-based rate limiting**: Global (60 req/min), session creation (10/hour), votes/reactions (30/min). Uses SHA-256 hashed IP (never stores raw IPs). KV-based with fixed time windows and auto-expiring TTL
+- **Turnstile CAPTCHA**: Session creation requires Cloudflare Turnstile verification in production (skipped in dev or if `TURNSTILE_SECRET_KEY` not set). Frontend uses `VITE_TURNSTILE_SITE_KEY` env var
 
 ## Deployment
 
@@ -308,8 +310,10 @@ Workers Routes have higher priority than Pages. `/api/*` and `/ws/*` route to Wo
 
 | Secret | Description |
 |--------|-------------|
-| `CLOUDFLARE_API_TOKEN` | Cloudflare API Token (requires Workers Scripts, D1, Pages, Workers Routes permissions) |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API Token (requires Workers Scripts, D1, KV, Pages, Workers Routes permissions) |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Account ID |
+| `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret key (optional, enables CAPTCHA on session creation) |
+| `VITE_TURNSTILE_SITE_KEY` | Cloudflare Turnstile site key for frontend (optional) |
 
 ## Requirements
 

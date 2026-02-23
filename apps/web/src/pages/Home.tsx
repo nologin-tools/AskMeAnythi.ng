@@ -1,27 +1,94 @@
-import { Component, createSignal } from 'solid-js';
+import { Component, createSignal, onMount, onCleanup } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import Logo from '../components/Logo';
 import Loading from '../components/Loading';
 import { createSession } from '../lib/api';
 import { setAdminToken } from '../lib/storage';
 
+// Turnstile site key — set via environment variable at build time
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (element: string | HTMLElement, options: {
+        sitekey: string;
+        callback: (token: string) => void;
+        'expired-callback'?: () => void;
+        'error-callback'?: () => void;
+        theme?: 'light' | 'dark' | 'auto';
+        size?: 'normal' | 'compact' | 'invisible';
+      }) => string;
+      reset: (widgetId: string) => void;
+      remove: (widgetId: string) => void;
+    };
+  }
+}
+
 const Home: Component = () => {
   const navigate = useNavigate();
   const [creating, setCreating] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = createSignal<string | null>(null);
+  let turnstileWidgetId: string | undefined;
+  let turnstileContainer: HTMLDivElement | undefined;
+
+  onMount(() => {
+    if (!TURNSTILE_SITE_KEY) return;
+
+    // Load Turnstile script
+    const script = document.createElement('script');
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad';
+    script.async = true;
+
+    (window as any).onTurnstileLoad = () => {
+      if (turnstileContainer && window.turnstile) {
+        turnstileWidgetId = window.turnstile.render(turnstileContainer, {
+          sitekey: TURNSTILE_SITE_KEY,
+          callback: (token: string) => setTurnstileToken(token),
+          'expired-callback': () => setTurnstileToken(null),
+          'error-callback': () => setTurnstileToken(null),
+          theme: 'light',
+          size: 'normal',
+        });
+      }
+    };
+
+    document.head.appendChild(script);
+
+    onCleanup(() => {
+      if (turnstileWidgetId && window.turnstile) {
+        window.turnstile.remove(turnstileWidgetId);
+      }
+      script.remove();
+      delete (window as any).onTurnstileLoad;
+    });
+  });
 
   const handleCreate = async () => {
+    if (TURNSTILE_SITE_KEY && !turnstileToken()) {
+      setError('Please complete the verification first.');
+      return;
+    }
+
     setCreating(true);
     setError(null);
 
     try {
-      const result = await createSession();
+      const result = await createSession({
+        turnstileToken: turnstileToken() || undefined,
+      });
       setAdminToken(result.session.id, result.adminToken);
       navigate(`/s/${result.session.id}/admin`);
     } catch (err) {
       console.error('Failed to create session:', err);
       setError('Failed to create session. Please try again.');
       setCreating(false);
+      // Reset turnstile on failure
+      if (turnstileWidgetId && window.turnstile) {
+        window.turnstile.reset(turnstileWidgetId);
+        setTurnstileToken(null);
+      }
     }
   };
 
@@ -52,9 +119,14 @@ const Home: Component = () => {
           </p>
 
           <div class="flex flex-col items-center gap-4 animate-slide-up" style={{ "animation-delay": "0.2s" }}>
+            {/* Turnstile verification widget */}
+            {TURNSTILE_SITE_KEY && (
+              <div ref={turnstileContainer} class="mb-2" />
+            )}
+
             <button
               onClick={handleCreate}
-              disabled={creating()}
+              disabled={creating() || (!!TURNSTILE_SITE_KEY && !turnstileToken())}
               class="group h-14 px-8 rounded-full bg-black text-white text-lg font-medium hover:scale-105 hover:shadow-2xl transition-all duration-300 disabled:opacity-70 disabled:hover:scale-100 flex items-center gap-3"
             >
               {creating() ? (

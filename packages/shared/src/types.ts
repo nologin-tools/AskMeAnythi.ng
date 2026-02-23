@@ -31,6 +31,7 @@ export interface CreateSessionRequest {
   maxQuestionsPerVisitor?: number;
   rateLimitCount?: number;
   rateLimitWindow?: number;
+  turnstileToken?: string;
 }
 
 // 创建 Session 响应

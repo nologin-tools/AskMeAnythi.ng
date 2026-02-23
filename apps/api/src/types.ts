@@ -5,6 +5,7 @@ export interface Env {
   SESSION_ROOM: DurableObjectNamespace;
   CACHE: KVNamespace;
   ENVIRONMENT: string;
+  TURNSTILE_SECRET_KEY?: string;
   // RESEND_API_KEY: string;
 }
 
