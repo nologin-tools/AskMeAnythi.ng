@@ -386,7 +386,6 @@ const SessionAdmin: Component = () => {
         </div>
 
         {/* Rate limit window */}
-        <Show when={(session()?.rateLimitCount ?? 0) > 0}>
           <div class="flex items-center justify-between">
             <span class="text-sm text-gray-600">Time window</span>
             <select
@@ -397,7 +396,6 @@ const SessionAdmin: Component = () => {
               {RATE_LIMIT_WINDOW_OPTIONS.map(opt => <option value={opt.value}>{opt.label}</option>)}
             </select>
           </div>
-        </Show>
       </div>
 
       {/* Danger Zone */}
