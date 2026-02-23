@@ -32,8 +32,8 @@ export const DEFAULT_PAGE_SIZE = 50;
 export const MAX_PAGE_SIZE = 100;
 
 // Per-visitor question limits
-export const DEFAULT_MAX_QUESTIONS_PER_VISITOR = 50; // per visitor per session
-export const DEFAULT_RATE_LIMIT_COUNT = 5; // per visitor per rate window
+export const DEFAULT_MAX_QUESTIONS_PER_VISITOR = 3; // per visitor per session
+export const DEFAULT_RATE_LIMIT_COUNT = 1; // per visitor per rate window
 export const DEFAULT_RATE_LIMIT_WINDOW = 60; // seconds
 export const MAX_QUESTIONS_PER_VISITOR_LIMIT = 1000;
 export const MAX_RATE_LIMIT_COUNT = 100;

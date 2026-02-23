@@ -279,8 +279,8 @@ AskMeAnythi.ng/
 | `MIN_TTL_DAYS` | 1 | Min TTL in days |
 | `VALID_QUESTION_STATUSES` | `['pending', 'approved', 'answered', 'rejected']` | Valid question status enum |
 | `ADMIN_TOKEN_PATTERN` | `/^[A-Za-z0-9_-]{20,64}$/` | Admin token format regex |
-| `DEFAULT_MAX_QUESTIONS_PER_VISITOR` | 50 | Default per-visitor question limit (0=unlimited) |
-| `DEFAULT_RATE_LIMIT_COUNT` | 5 | Default rate limit count per window (0=unlimited) |
+| `DEFAULT_MAX_QUESTIONS_PER_VISITOR` | 3 | Default per-visitor question limit (0=unlimited) |
+| `DEFAULT_RATE_LIMIT_COUNT` | 1 | Default rate limit count per window (0=unlimited) |
 | `DEFAULT_RATE_LIMIT_WINDOW` | 60 | Default rate limit window (seconds) |
 | `MAX_QUESTIONS_PER_VISITOR_LIMIT` | 1000 | Per-visitor question limit upper bound |
 | `MAX_RATE_LIMIT_COUNT` | 100 | Rate limit count upper bound |
