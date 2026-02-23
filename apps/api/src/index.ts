@@ -8,6 +8,7 @@ import { answersRouter } from './routes/answers';
 import { votesRouter } from './routes/votes';
 import { reactionsRouter } from './routes/reactions';
 import { handleScheduled } from './scheduled';
+import { rateLimit } from './middleware/rate-limit';
 
 // Re-export Durable Object
 export { SessionRoom } from './durable-objects/session-room';
@@ -31,6 +32,9 @@ app.use('*', async (c, next) => {
 
   return corsMiddleware(c, next);
 });
+
+// Global IP-based rate limiting (60 requests per minute per IP)
+app.use('/api/*', rateLimit({ prefix: 'global', maxRequests: 60, windowSeconds: 60 }));
 
 // 健康检查
 app.get('/health', (c) => c.json({ status: 'ok' }));

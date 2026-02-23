@@ -33,6 +33,8 @@ pnpm db:migrate             # Local database migration (full)
 pnpm --filter api db:migrate:remote  # Remote database migration (full)
 pnpm --filter api db:migrate:limits  # Local: question limits migration
 pnpm --filter api db:migrate:limits:remote  # Remote: question limits migration
+pnpm --filter api db:migrate:rate-limits  # Local: rate limits migration
+pnpm --filter api db:migrate:rate-limits:remote  # Remote: rate limits migration
 
 # Checks
 pnpm lint                   # Full TypeScript type checking
@@ -51,6 +53,8 @@ AskMeAnythi.ng/
 │   │   │   ├── index.ts              # Hono entry, CORS config, scheduled export
 │   │   │   ├── scheduled.ts          # Cron job to clean expired sessions
 │   │   │   ├── types.ts              # Environment type definitions
+│   │   │   ├── middleware/
+│   │   │   │   └── rate-limit.ts     # IP-based rate limiting middleware
 │   │   │   ├── utils/
 │   │   │   │   └── auth.ts           # Shared admin token verification
 │   │   │   ├── routes/               # API routes
@@ -63,7 +67,8 @@ AskMeAnythi.ng/
 │   │   │   │   └── session-room.ts   # WebSocket Durable Object
 │   │   │   └── db/
 │   │   │       ├── schema.sql        # D1 database schema
-│   │   │       └── 0001_add_question_limits.sql  # Question limits migration
+│   │   │       ├── 0001_add_question_limits.sql  # Question limits migration
+│   │   │       └── 0002_add_rate_limits.sql      # IP rate limits migration
 │   │   └── wrangler.toml             # Workers configuration
 │   │
 │   └── web/                          # Frontend app (SolidJS)
@@ -274,6 +279,7 @@ AskMeAnythi.ng/
 - **Error handling**: Production does not leak internal error messages, JSON parse failures return 400
 - **WebSocket security**: Validates session exists and is not expired before connection
 - **Scheduled cleanup**: Uses `DB.batch()` for atomic cleanup, processes in batches to prevent parameter overflow (50 per batch)
+- **IP-based rate limiting**: Global (60 req/min), session creation (10/hour), votes/reactions (30/min). Uses SHA-256 hashed IP (never stores raw IPs). Cron cleans records older than 1 hour
 
 ## Deployment
 
