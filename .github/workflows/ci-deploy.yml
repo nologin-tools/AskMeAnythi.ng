@@ -50,8 +50,8 @@ jobs:
             local output
             if output=$(npx wrangler d1 execute askmeanything-db --remote --env production --file="$file" 2>&1); then
               echo "✅ Applied: $file"
-            elif echo "$output" | grep -q "duplicate column name"; then
-              echo "⏭️  Already applied (duplicate column): $file"
+            elif echo "$output" | grep -qE "duplicate column name|no such column"; then
+              echo "⏭️  Skipped (schema conflict, will retry): $file"
             else
               echo "❌ Failed: $file"
               echo "$output"
@@ -59,14 +59,17 @@ jobs:
             fi
           }
 
-          # Base schema (idempotent via IF NOT EXISTS)
-          npx wrangler d1 execute askmeanything-db --remote --env production --file=./src/db/schema.sql
+          # First pass: base schema (may fail on existing DBs missing migration columns)
+          run_migration ./src/db/schema.sql
 
-          # Incremental migrations (safe to re-run)
+          # Incremental migrations (add columns/tables to existing DBs)
           run_migration ./src/db/0001_add_question_limits.sql
           run_migration ./src/db/0002_add_rate_limits.sql
           run_migration ./src/db/0003_add_server_fingerprint.sql
           run_migration ./src/db/0004_add_reports.sql
+
+          # Second pass: ensure all indexes exist (all columns now present)
+          npx wrangler d1 execute askmeanything-db --remote --env production --file=./src/db/schema.sql
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
