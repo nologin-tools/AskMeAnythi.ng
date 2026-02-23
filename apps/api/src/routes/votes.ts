@@ -2,11 +2,18 @@ import { Hono } from 'hono';
 import type { Env, QuestionRow, VoteRow } from '../types';
 import { generateUniqueId } from '@askmeanything/shared';
 import type { ApiResponse } from '@askmeanything/shared';
+import { checkRateLimit } from '../middleware/rate-limit';
 
 export const votesRouter = new Hono<{ Bindings: Env }>();
 
 // 投票/取消投票
 votesRouter.post('/question/:questionId', async (c) => {
+  // Vote rate limit: 30 per minute per IP
+  const { limited } = await checkRateLimit(c, { prefix: 'vote', maxRequests: 30, windowSeconds: 60 });
+  if (limited) {
+    return c.json<ApiResponse<null>>({ success: false, error: 'Too many votes. Please slow down.' }, 429);
+  }
+
   const questionId = c.req.param('questionId');
   const visitorId = c.req.header('X-Visitor-Id');
 

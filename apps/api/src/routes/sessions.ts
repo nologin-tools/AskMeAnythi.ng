@@ -25,6 +25,7 @@ import type {
   ApiResponse,
 } from '@askmeanything/shared';
 import { verifyAdminToken } from '../utils/auth';
+import { checkRateLimit } from '../middleware/rate-limit';
 
 export const sessionsRouter = new Hono<{ Bindings: Env }>();
 
@@ -55,6 +56,12 @@ function clampInt(value: number | undefined, defaultVal: number, min: number, ma
 
 // 创建活动
 sessionsRouter.post('/', async (c) => {
+  // Session creation rate limit: 10 per hour per IP
+  const { limited } = await checkRateLimit(c, { prefix: 'session_create', maxRequests: 10, windowSeconds: 3600 });
+  if (limited) {
+    return c.json<ApiResponse<null>>({ success: false, error: 'Too many sessions created. Please try again later.' }, 429);
+  }
+
   const body: CreateSessionRequest = await c.req.json<CreateSessionRequest>().catch(() => ({}));
 
   if (body.title && body.title.length > MAX_TITLE_LENGTH) {

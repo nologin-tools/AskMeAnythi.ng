@@ -6,6 +6,7 @@ import type {
   ReactionSummary,
   ApiResponse,
 } from '@askmeanything/shared';
+import { checkRateLimit } from '../middleware/rate-limit';
 
 export const reactionsRouter = new Hono<{ Bindings: Env }>();
 
@@ -67,6 +68,12 @@ const VALID_TARGET_TYPES = ['question', 'answer'];
 
 // 添加/移除反应
 reactionsRouter.post('/', async (c) => {
+  // Reaction rate limit: 30 per minute per IP
+  const { limited } = await checkRateLimit(c, { prefix: 'reaction', maxRequests: 30, windowSeconds: 60 });
+  if (limited) {
+    return c.json<ApiResponse<null>>({ success: false, error: 'Too many reactions. Please slow down.' }, 429);
+  }
+
   const body = await c.req.json<CreateReactionRequest>().catch((): CreateReactionRequest => ({} as CreateReactionRequest));
   const visitorId = c.req.header('X-Visitor-Id');
 
