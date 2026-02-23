@@ -71,15 +71,21 @@ AskMeAnythi.ng/
 │       │   ├── index.tsx             # 应用入口，SolidJS Router 挂载
 │       │   ├── index.css             # 全局样式，Tailwind 导入
 │       │   ├── App.tsx               # 路由定义
-│       │   ├── pages/                # 页面组件（6 个）
+│       │   ├── pages/                # 页面组件（11 个）
 │       │   │   ├── Home.tsx          # 首页，创建会话
+│       │   │   ├── About.tsx         # 产品介绍
+│       │   │   ├── Privacy.tsx       # 隐私政策
+│       │   │   ├── Terms.tsx         # 服务条款
+│       │   │   ├── FAQ.tsx           # 常见问题
+│       │   │   ├── Contact.tsx       # 联系方式
 │       │   │   ├── SessionPublic.tsx  # 公开页面，提问投票
 │       │   │   ├── SessionAdmin.tsx   # 管理员仪表盘
 │       │   │   ├── SessionProjector.tsx # 投影模式
 │       │   │   ├── SessionEnded.tsx   # 会话已结束页面
 │       │   │   └── NotFound.tsx       # 404 页面
-│       │   ├── components/           # UI 组件（11 个）
+│       │   ├── components/           # UI 组件（12 个）
 │       │   │   ├── Logo.tsx          # 品牌 Logo
+│       │   │   ├── StaticPageLayout.tsx # 辅助页面公共布局
 │       │   │   ├── QuestionCard.tsx   # 问题卡片
 │       │   │   ├── QuestionInput.tsx  # 问题输入框
 │       │   │   ├── AnswerEditor.tsx   # 回答编辑器
@@ -153,6 +159,11 @@ AskMeAnythi.ng/
 | 路由 | 组件 | 功能 |
 |------|------|------|
 | `/` | `Home` | 首页，创建新会话 |
+| `/about` | `About` | 产品介绍、功能特性、使用方法 |
+| `/privacy` | `Privacy` | 隐私政策 |
+| `/terms` | `Terms` | 服务条款 |
+| `/faq` | `FAQ` | 常见问题解答 |
+| `/contact` | `Contact` | 联系方式 |
 | `/s/:id` | `SessionPublic` | 公开页面，提问投票 |
 | `/s/:id/admin` | `SessionAdmin` | 管理员仪表盘 |
 | `/s/:id/projector` | `SessionProjector` | 投影模式（支持快捷键） |

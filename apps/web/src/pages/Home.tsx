@@ -102,6 +102,14 @@ const Home: Component = () => {
              <a href="https://github.com/nologin-tools/AskMeAnythi.ng/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-gray-400 hover:text-gray-900 transition-colors text-xs font-medium" aria-label="MIT License">
                MIT
              </a>
+             <span class="text-gray-200">·</span>
+             <a href="/about" class="text-gray-400 hover:text-gray-900 transition-colors text-xs">About</a>
+             <span class="text-gray-200">·</span>
+             <a href="/faq" class="text-gray-400 hover:text-gray-900 transition-colors text-xs">FAQ</a>
+             <span class="text-gray-200">·</span>
+             <a href="/privacy" class="text-gray-400 hover:text-gray-900 transition-colors text-xs">Privacy</a>
+             <span class="text-gray-200">·</span>
+             <a href="/terms" class="text-gray-400 hover:text-gray-900 transition-colors text-xs">Terms</a>
            </div>
            <p class="font-mono text-xs">Designed for minimalism.</p>
         </div>
