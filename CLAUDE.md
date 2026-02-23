@@ -35,6 +35,8 @@ pnpm --filter api db:migrate:limits  # Local: question limits migration
 pnpm --filter api db:migrate:limits:remote  # Remote: question limits migration
 pnpm --filter api db:migrate:rate-limits  # Local: rate limits migration
 pnpm --filter api db:migrate:rate-limits:remote  # Remote: rate limits migration
+pnpm --filter api db:migrate:fingerprint  # Local: server fingerprint migration
+pnpm --filter api db:migrate:fingerprint:remote  # Remote: server fingerprint migration
 
 # Checks
 pnpm lint                   # Full TypeScript type checking
@@ -57,7 +59,8 @@ AskMeAnythi.ng/
 │   │   │   │   └── rate-limit.ts     # IP-based rate limiting middleware
 │   │   │   ├── utils/
 │   │   │   │   ├── auth.ts           # Shared admin token verification
-│   │   │   │   └── turnstile.ts      # Cloudflare Turnstile verification
+│   │   │   │   ├── turnstile.ts      # Cloudflare Turnstile verification
+│   │   │   │   └── fingerprint.ts    # Server-side visitor fingerprint
 │   │   │   ├── routes/               # API routes
 │   │   │   │   ├── sessions.ts       # Session CRUD
 │   │   │   │   ├── questions.ts      # Question CRUD
@@ -69,7 +72,8 @@ AskMeAnythi.ng/
 │   │   │   └── db/
 │   │   │       ├── schema.sql        # D1 database schema
 │   │   │       ├── 0001_add_question_limits.sql  # Question limits migration
-│   │   │       └── 0002_add_rate_limits.sql      # IP rate limits migration
+│   │   │       ├── 0002_add_rate_limits.sql      # IP rate limits migration
+│   │   │       └── 0003_add_server_fingerprint.sql  # Server fingerprint migration
 │   │   └── wrangler.toml             # Workers configuration
 │   │
 │   └── web/                          # Frontend app (SolidJS)
@@ -282,6 +286,7 @@ AskMeAnythi.ng/
 - **Scheduled cleanup**: Uses `DB.batch()` for atomic cleanup, processes in batches to prevent parameter overflow (50 per batch)
 - **IP-based rate limiting**: Global (60 req/min), session creation (10/hour), votes/reactions (30/min). Uses SHA-256 hashed IP (never stores raw IPs). KV-based with fixed time windows and auto-expiring TTL
 - **Turnstile CAPTCHA**: Session creation requires Cloudflare Turnstile verification in production (skipped in dev or if `TURNSTILE_SECRET_KEY` not set). Frontend uses `VITE_TURNSTILE_SITE_KEY` env var
+- **Server-side fingerprint**: Questions store `author_fp` (SHA-256 of IP + User-Agent). Quota checks use `MAX(visitorId count, fingerprint count)` to prevent bypass by changing localStorage visitor ID
 
 ## Deployment
 

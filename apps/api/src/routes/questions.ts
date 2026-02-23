@@ -19,6 +19,7 @@ import type {
   VisitorQuotaInfo,
 } from '@askmeanything/shared';
 import { verifyAdminToken } from '../utils/auth';
+import { generateFingerprint } from '../utils/fingerprint';
 
 export const questionsRouter = new Hono<{ Bindings: Env }>();
 
@@ -137,38 +138,56 @@ async function getBatchReactionsSummary(
   return result;
 }
 
-// 检查访客配额
+// 检查访客配额 (checks both visitorId and server fingerprint, uses the higher count)
 async function checkVisitorQuota(
   db: D1Database,
   sessionId: string,
   visitorId: string,
-  session: SessionRow
+  session: SessionRow,
+  fingerprint?: string
 ): Promise<VisitorQuotaInfo> {
   const maxTotal = session.max_questions_per_visitor ?? 0;
   const rateCount = session.rate_limit_count ?? 0;
   const rateWindow = session.rate_limit_window ?? 60;
+  const windowStart = Date.now() - rateWindow * 1000;
 
-  // Build batch queries
-  const queries = [];
-
-  // Total count query
-  queries.push(
+  // Build batch queries for visitorId
+  const queries = [
     db.prepare(
       'SELECT COUNT(*) as count FROM questions WHERE session_id = ? AND author_id = ?'
-    ).bind(sessionId, visitorId)
-  );
-
-  // Rate window count query
-  const windowStart = Date.now() - rateWindow * 1000;
-  queries.push(
+    ).bind(sessionId, visitorId),
     db.prepare(
       'SELECT COUNT(*) as count FROM questions WHERE session_id = ? AND author_id = ? AND created_at > ?'
-    ).bind(sessionId, visitorId, windowStart)
-  );
+    ).bind(sessionId, visitorId, windowStart),
+  ];
 
-  const [totalResult, rateResult] = await db.batch(queries);
-  const totalUsed = (totalResult.results?.[0] as any)?.count ?? 0;
-  const rateUsed = (rateResult.results?.[0] as any)?.count ?? 0;
+  // Add fingerprint queries if available
+  if (fingerprint) {
+    queries.push(
+      db.prepare(
+        'SELECT COUNT(*) as count FROM questions WHERE session_id = ? AND author_fp = ?'
+      ).bind(sessionId, fingerprint),
+      db.prepare(
+        'SELECT COUNT(*) as count FROM questions WHERE session_id = ? AND author_fp = ? AND created_at > ?'
+      ).bind(sessionId, fingerprint, windowStart),
+    );
+  }
+
+  const results = await db.batch(queries);
+
+  const visitorTotal = (results[0].results?.[0] as any)?.count ?? 0;
+  const visitorRate = (results[1].results?.[0] as any)?.count ?? 0;
+
+  // Take the maximum count between visitorId and fingerprint
+  let totalUsed = visitorTotal;
+  let rateUsed = visitorRate;
+
+  if (fingerprint && results.length >= 4) {
+    const fpTotal = (results[2].results?.[0] as any)?.count ?? 0;
+    const fpRate = (results[3].results?.[0] as any)?.count ?? 0;
+    totalUsed = Math.max(visitorTotal, fpTotal);
+    rateUsed = Math.max(visitorRate, fpRate);
+  }
 
   const totalRemaining = maxTotal > 0 ? Math.max(0, maxTotal - totalUsed) : -1;
   const rateRemaining = rateCount > 0 ? Math.max(0, rateCount - rateUsed) : -1;
@@ -345,8 +364,11 @@ questionsRouter.post('/session/:sessionId', async (c) => {
     }, 410);
   }
 
-  // Check visitor quota
-  const quota = await checkVisitorQuota(c.env.DB, sessionId, visitorId, session);
+  // Generate server-side fingerprint
+  const fingerprint = await generateFingerprint(c);
+
+  // Check visitor quota (uses both visitorId and fingerprint)
+  const quota = await checkVisitorQuota(c.env.DB, sessionId, visitorId, session, fingerprint);
   if (!quota.canAsk) {
     if (quota.totalLimit > 0 && quota.totalUsed >= quota.totalLimit) {
       return c.json<ApiResponse<{ quota: VisitorQuotaInfo }>>({
@@ -369,14 +391,15 @@ questionsRouter.post('/session/:sessionId', async (c) => {
 
   // Use visitorId from header as authorId (prevents spoofing)
   await c.env.DB.prepare(`
-    INSERT INTO questions (id, session_id, content, author_id, author_name, status, is_pinned, vote_count, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?)
+    INSERT INTO questions (id, session_id, content, author_id, author_name, author_fp, status, is_pinned, vote_count, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)
   `).bind(
     id,
     sessionId,
     body.content,
     visitorId,
     body.authorName || null,
+    fingerprint,
     status,
     now,
     now
@@ -526,7 +549,8 @@ questionsRouter.get('/session/:sessionId/quota', async (c) => {
     }, 404);
   }
 
-  const quota = await checkVisitorQuota(c.env.DB, sessionId, visitorId, session);
+  const fp = await generateFingerprint(c);
+  const quota = await checkVisitorQuota(c.env.DB, sessionId, visitorId, session, fp);
 
   return c.json<ApiResponse<VisitorQuotaInfo>>({
     success: true,

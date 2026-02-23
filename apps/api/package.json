@@ -12,7 +12,9 @@
     "db:migrate:limits": "wrangler d1 execute askmeanything-db --local --file=./src/db/0001_add_question_limits.sql",
     "db:migrate:limits:remote": "wrangler d1 execute askmeanything-db --remote --file=./src/db/0001_add_question_limits.sql",
     "db:migrate:rate-limits": "wrangler d1 execute askmeanything-db --local --file=./src/db/0002_add_rate_limits.sql",
-    "db:migrate:rate-limits:remote": "wrangler d1 execute askmeanything-db --remote --file=./src/db/0002_add_rate_limits.sql"
+    "db:migrate:rate-limits:remote": "wrangler d1 execute askmeanything-db --remote --file=./src/db/0002_add_rate_limits.sql",
+    "db:migrate:fingerprint": "wrangler d1 execute askmeanything-db --local --file=./src/db/0003_add_server_fingerprint.sql",
+    "db:migrate:fingerprint:remote": "wrangler d1 execute askmeanything-db --remote --file=./src/db/0003_add_server_fingerprint.sql"
   },
   "dependencies": {
     "@askmeanything/shared": "workspace:*",

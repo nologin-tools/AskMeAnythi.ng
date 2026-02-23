@@ -32,6 +32,7 @@ export interface QuestionRow {
   content: string;
   author_id: string;
   author_name: string | null;
+  author_fp: string | null;
   status: string;
   is_pinned: number;
   vote_count: number;
