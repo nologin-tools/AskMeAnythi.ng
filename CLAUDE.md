@@ -11,7 +11,7 @@ AskMeAnything (askmeanythi.ng) - A disposable AMA event platform, use-and-go, no
 - **License**: MIT
 
 **Tech Stack**:
-- Backend: Cloudflare Workers + Hono.js + D1 + Durable Objects
+- Backend: Cloudflare Workers + Hono.js + D1 + KV + Durable Objects
 - Frontend: SolidJS + TypeScript + Vite + Tailwind CSS
 - Build: pnpm + Turbo
 
@@ -279,7 +279,7 @@ AskMeAnythi.ng/
 - **Error handling**: Production does not leak internal error messages, JSON parse failures return 400
 - **WebSocket security**: Validates session exists and is not expired before connection
 - **Scheduled cleanup**: Uses `DB.batch()` for atomic cleanup, processes in batches to prevent parameter overflow (50 per batch)
-- **IP-based rate limiting**: Global (60 req/min), session creation (10/hour), votes/reactions (30/min). Uses SHA-256 hashed IP (never stores raw IPs). Cron cleans records older than 1 hour
+- **IP-based rate limiting**: Global (60 req/min), session creation (10/hour), votes/reactions (30/min). Uses SHA-256 hashed IP (never stores raw IPs). KV-based with fixed time windows and auto-expiring TTL
 
 ## Deployment
 

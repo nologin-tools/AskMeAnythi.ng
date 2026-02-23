@@ -1,10 +1,10 @@
-import type { D1Database, DurableObjectNamespace } from '@cloudflare/workers-types';
+import type { D1Database, DurableObjectNamespace, KVNamespace } from '@cloudflare/workers-types';
 
 export interface Env {
   DB: D1Database;
   SESSION_ROOM: DurableObjectNamespace;
+  CACHE: KVNamespace;
   ENVIRONMENT: string;
-  // CACHE: KVNamespace;
   // RESEND_API_KEY: string;
 }
 

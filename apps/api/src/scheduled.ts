@@ -46,11 +46,4 @@ export async function handleScheduled(env: Env): Promise<void> {
   }
 
   console.log(`Cleaned up ${sessionIds.length} expired/deleted sessions`);
-
-  // Clean up old rate limit records (older than 1 hour)
-  const rateLimitCutoff = now - 60 * 60 * 1000;
-  const rateLimitResult = await env.DB.prepare(
-    'DELETE FROM rate_limits WHERE created_at < ?'
-  ).bind(rateLimitCutoff).run();
-  console.log(`Cleaned up rate limit records older than 1 hour`);
 }

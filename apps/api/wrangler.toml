@@ -22,10 +22,10 @@ bindings = [
 tag = "v1"
 new_sqlite_classes = ["SessionRoom"]
 
-# KV Namespace (for caching)
-# [[kv_namespaces]]
-# binding = "CACHE"
-# id = "your-kv-namespace-id"
+# KV Namespace (for rate limiting and caching)
+[[kv_namespaces]]
+binding = "CACHE"
+id = "local-kv"
 
 # Cron Triggers (for cleanup)
 # [triggers]
@@ -55,6 +55,10 @@ new_sqlite_classes = ["SessionRoom"]
 binding = "DB"
 database_name = "askmeanything-db"
 database_id = "c98648ff-3ac8-4569-ab46-c6ba1e356372"
+
+[[env.production.kv_namespaces]]
+binding = "CACHE"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
 
 [env.production.triggers]
 crons = ["0 3 * * *"]

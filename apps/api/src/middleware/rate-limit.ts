@@ -31,23 +31,52 @@ interface RateLimitOptions {
 }
 
 /**
- * Create a D1-based rate limiting middleware.
- * Uses hashed IP as the rate limit key.
+ * Fixed-window rate limiting using KV.
+ * KV key format: `rl:{prefix}:{ipHash}:{windowId}`
+ * KV value: request count (number as string)
+ * TTL: windowSeconds (auto-expires)
+ */
+async function kvRateCheck(
+  kv: KVNamespace,
+  options: RateLimitOptions,
+  ipHash: string
+): Promise<{ count: number }> {
+  const windowId = Math.floor(Date.now() / (options.windowSeconds * 1000));
+  const key = `rl:${options.prefix}:${ipHash}:${windowId}`;
+
+  const current = await kv.get(key);
+  const count = current ? parseInt(current, 10) : 0;
+
+  return { count };
+}
+
+async function kvRateIncrement(
+  kv: KVNamespace,
+  options: RateLimitOptions,
+  ipHash: string
+): Promise<void> {
+  const windowId = Math.floor(Date.now() / (options.windowSeconds * 1000));
+  const key = `rl:${options.prefix}:${ipHash}:${windowId}`;
+
+  const current = await kv.get(key);
+  const count = current ? parseInt(current, 10) : 0;
+
+  await kv.put(key, (count + 1).toString(), {
+    expirationTtl: options.windowSeconds,
+  });
+}
+
+/**
+ * Create a KV-based rate limiting middleware.
+ * Uses hashed IP as the rate limit key with fixed time windows.
+ * KV TTL handles automatic expiration — no cron cleanup needed.
  */
 export function rateLimit(options: RateLimitOptions): MiddlewareHandler<{ Bindings: Env }> {
   return async (c, next) => {
     const ip = getClientIp(c);
     const ipHash = await sha256(ip);
-    const key = `${options.prefix}:${ipHash}`;
-    const now = Date.now();
-    const windowStart = now - options.windowSeconds * 1000;
 
-    // Count requests in the current window
-    const result = await c.env.DB.prepare(
-      'SELECT COUNT(*) as count FROM rate_limits WHERE key = ? AND created_at > ?'
-    ).bind(key, windowStart).first<{ count: number }>();
-
-    const count = result?.count ?? 0;
+    const { count } = await kvRateCheck(c.env.CACHE, options, ipHash);
 
     // Set rate limit headers
     c.header('X-RateLimit-Limit', options.maxRequests.toString());
@@ -61,17 +90,14 @@ export function rateLimit(options: RateLimitOptions): MiddlewareHandler<{ Bindin
       );
     }
 
-    // Record this request
-    await c.env.DB.prepare(
-      'INSERT INTO rate_limits (key, created_at) VALUES (?, ?)'
-    ).bind(key, now).run();
+    await kvRateIncrement(c.env.CACHE, options, ipHash);
 
     await next();
   };
 }
 
 /**
- * Create a rate limiter that can be called manually in route handlers.
+ * Check rate limit manually in route handlers (KV-based).
  * Returns { limited: true } if rate limit exceeded, { limited: false } otherwise.
  */
 export async function checkRateLimit(
@@ -80,15 +106,8 @@ export async function checkRateLimit(
 ): Promise<{ limited: boolean }> {
   const ip = getClientIp(c);
   const ipHash = await sha256(ip);
-  const key = `${options.prefix}:${ipHash}`;
-  const now = Date.now();
-  const windowStart = now - options.windowSeconds * 1000;
 
-  const result = await c.env.DB.prepare(
-    'SELECT COUNT(*) as count FROM rate_limits WHERE key = ? AND created_at > ?'
-  ).bind(key, windowStart).first<{ count: number }>();
-
-  const count = result?.count ?? 0;
+  const { count } = await kvRateCheck(c.env.CACHE, options, ipHash);
 
   c.header('X-RateLimit-Limit', options.maxRequests.toString());
   c.header('X-RateLimit-Remaining', Math.max(0, options.maxRequests - count - 1).toString());
@@ -98,9 +117,7 @@ export async function checkRateLimit(
     return { limited: true };
   }
 
-  await c.env.DB.prepare(
-    'INSERT INTO rate_limits (key, created_at) VALUES (?, ?)'
-  ).bind(key, now).run();
+  await kvRateIncrement(c.env.CACHE, options, ipHash);
 
   return { limited: false };
 }
