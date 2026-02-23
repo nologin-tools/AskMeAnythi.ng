@@ -249,4 +249,5 @@ export interface VisitorQuotaInfo {
   rateUsed: number;
   rateRemaining: number;
   canAsk: boolean;
+  nextAllowedAt?: number; // epoch ms: when the visitor can ask again (rate limit)
 }

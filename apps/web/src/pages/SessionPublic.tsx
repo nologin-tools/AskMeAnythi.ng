@@ -116,7 +116,14 @@ const SessionPublic: Component = () => {
     } catch (err) {
       if (err instanceof QuotaExceededError) {
         setQuota(err.quota);
-        showToast(err.message, 'error');
+        if (err.status === 429 && err.quota.nextAllowedAt) {
+          const secs = Math.ceil((err.quota.nextAllowedAt - Date.now()) / 1000);
+          const mins = Math.floor(secs / 60);
+          const remainSecs = secs % 60;
+          showToast(`Please wait ${mins}:${remainSecs.toString().padStart(2, '0')} before asking again`, 'info');
+        } else {
+          showToast(err.message, 'error');
+        }
       } else {
         showToast('Failed to submit', 'error');
       }
@@ -197,7 +204,7 @@ const SessionPublic: Component = () => {
         {/* Floating Input - Bottom Fixed */}
         <div class="fixed bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-white via-white/90 to-transparent pt-12">
           <div class="max-w-2xl mx-auto">
-             <QuestionInput onSubmit={handleSubmitQuestion} quota={quota()} />
+             <QuestionInput onSubmit={handleSubmitQuestion} quota={quota()} onRefreshQuota={fetchQuota} />
           </div>
         </div>
 

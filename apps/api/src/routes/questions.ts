@@ -160,6 +160,9 @@ async function checkVisitorQuota(
     db.prepare(
       'SELECT COUNT(*) as count FROM questions WHERE session_id = ? AND author_id = ? AND created_at > ?'
     ).bind(sessionId, visitorId, windowStart),
+    db.prepare(
+      'SELECT MIN(created_at) as earliest FROM questions WHERE session_id = ? AND author_id = ? AND created_at > ?'
+    ).bind(sessionId, visitorId, windowStart),
   ];
 
   // Add fingerprint queries if available
@@ -171,6 +174,9 @@ async function checkVisitorQuota(
       db.prepare(
         'SELECT COUNT(*) as count FROM questions WHERE session_id = ? AND author_fp = ? AND created_at > ?'
       ).bind(sessionId, fingerprint, windowStart),
+      db.prepare(
+        'SELECT MIN(created_at) as earliest FROM questions WHERE session_id = ? AND author_fp = ? AND created_at > ?'
+      ).bind(sessionId, fingerprint, windowStart),
     );
   }
 
@@ -178,16 +184,26 @@ async function checkVisitorQuota(
 
   const visitorTotal = (results[0].results?.[0] as any)?.count ?? 0;
   const visitorRate = (results[1].results?.[0] as any)?.count ?? 0;
+  const visitorEarliest: number | null = (results[2].results?.[0] as any)?.earliest ?? null;
 
   // Take the maximum count between visitorId and fingerprint
   let totalUsed = visitorTotal;
   let rateUsed = visitorRate;
+  let earliest = visitorEarliest;
 
-  if (fingerprint && results.length >= 4) {
-    const fpTotal = (results[2].results?.[0] as any)?.count ?? 0;
-    const fpRate = (results[3].results?.[0] as any)?.count ?? 0;
+  if (fingerprint && results.length >= 6) {
+    const fpTotal = (results[3].results?.[0] as any)?.count ?? 0;
+    const fpRate = (results[4].results?.[0] as any)?.count ?? 0;
+    const fpEarliest: number | null = (results[5].results?.[0] as any)?.earliest ?? null;
     totalUsed = Math.max(visitorTotal, fpTotal);
-    rateUsed = Math.max(visitorRate, fpRate);
+    // Use the earliest timestamp from whichever source has the higher rate count
+    if (fpRate > visitorRate) {
+      rateUsed = fpRate;
+      earliest = fpEarliest;
+    } else if (fpRate === visitorRate && fpEarliest !== null) {
+      // Same count: use the earlier timestamp (more conservative)
+      earliest = visitorEarliest !== null ? Math.min(visitorEarliest, fpEarliest) : fpEarliest;
+    }
   }
 
   const totalRemaining = maxTotal > 0 ? Math.max(0, maxTotal - totalUsed) : -1;
@@ -196,6 +212,12 @@ async function checkVisitorQuota(
   const canAsk =
     (maxTotal === 0 || totalUsed < maxTotal) &&
     (rateCount === 0 || rateUsed < rateCount);
+
+  // Compute nextAllowedAt when rate-limited
+  let nextAllowedAt: number | undefined;
+  if (rateCount > 0 && rateUsed >= rateCount && earliest !== null) {
+    nextAllowedAt = earliest + rateWindow * 1000;
+  }
 
   return {
     totalLimit: maxTotal,
@@ -206,6 +228,7 @@ async function checkVisitorQuota(
     rateUsed,
     rateRemaining: rateRemaining === -1 ? -1 : rateRemaining,
     canAsk,
+    nextAllowedAt,
   };
 }
 

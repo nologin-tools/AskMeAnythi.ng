@@ -1,4 +1,4 @@
-import { Component, createSignal, Show } from 'solid-js';
+import { Component, createSignal, createEffect, onCleanup, Show } from 'solid-js';
 import Avatar from './Avatar';
 import { getVisitorId } from '../lib/storage';
 import { MAX_QUESTION_LENGTH } from '@askmeanything/shared';
@@ -9,6 +9,14 @@ interface QuestionInputProps {
   disabled?: boolean;
   placeholder?: string;
   quota?: VisitorQuotaInfo | null;
+  onRefreshQuota?: () => void;
+}
+
+function formatCountdown(ms: number): string {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
 const QuestionInput: Component<QuestionInputProps> = (props) => {
@@ -16,10 +24,44 @@ const QuestionInput: Component<QuestionInputProps> = (props) => {
   const [authorName, setAuthorName] = createSignal('');
   const [submitting, setSubmitting] = createSignal(false);
   const [isExpanded, setIsExpanded] = createSignal(false);
+  const [countdown, setCountdown] = createSignal('');
 
   const visitorId = getVisitorId();
 
   const quotaDisabled = () => props.quota?.canAsk === false;
+  const isRateLimited = () => {
+    const q = props.quota;
+    return q && !q.canAsk && q.rateLimitCount > 0 && q.rateUsed >= q.rateLimitCount && (q.totalLimit === 0 || q.totalUsed < q.totalLimit);
+  };
+
+  // Countdown timer for rate limit
+  let timer: ReturnType<typeof setInterval> | undefined;
+
+  createEffect(() => {
+    const nextAt = props.quota?.nextAllowedAt;
+    if (timer) { clearInterval(timer); timer = undefined; }
+
+    if (!nextAt || !isRateLimited()) {
+      setCountdown('');
+      return;
+    }
+
+    const tick = () => {
+      const remaining = nextAt - Date.now();
+      if (remaining <= 0) {
+        setCountdown('');
+        if (timer) { clearInterval(timer); timer = undefined; }
+        props.onRefreshQuota?.();
+      } else {
+        setCountdown(formatCountdown(remaining));
+      }
+    };
+
+    tick();
+    timer = setInterval(tick, 1000);
+  });
+
+  onCleanup(() => { if (timer) clearInterval(timer); });
 
   const handleSubmit = async () => {
     const text = content().trim();
@@ -48,11 +90,18 @@ const QuestionInput: Component<QuestionInputProps> = (props) => {
       <Show when={props.quota && (props.quota.totalLimit > 0 || props.quota.rateLimitCount > 0)}>
         <div class="max-w-2xl mx-auto mb-2 px-4">
           <Show when={quotaDisabled()}>
-            <p class="text-xs text-red-500 font-medium">
-              {props.quota!.totalLimit > 0 && props.quota!.totalRemaining <= 0
-                ? `You've reached the limit of ${props.quota!.totalLimit} questions`
-                : `Rate limit exceeded. Please wait and try again`}
-            </p>
+            <Show when={isRateLimited() && countdown()} fallback={
+              <p class="text-xs text-red-500 font-medium">
+                {props.quota!.totalLimit > 0 && props.quota!.totalRemaining <= 0
+                  ? `You've reached the limit of ${props.quota!.totalLimit} questions`
+                  : `Rate limit exceeded. Please wait and try again`}
+              </p>
+            }>
+              <p class="text-xs text-gray-500 font-medium flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M12 6v6l4 2"/></svg>
+                You can ask again in {countdown()}
+              </p>
+            </Show>
           </Show>
           <Show when={!quotaDisabled() && props.quota!.totalLimit > 0}>
             <p class="text-xs text-gray-400">
@@ -92,7 +141,7 @@ const QuestionInput: Component<QuestionInputProps> = (props) => {
                     onInput={(e) => setContent(e.currentTarget.value)}
                     onKeyDown={handleKeyDown}
                     onFocus={() => setIsExpanded(true)}
-                    placeholder={quotaDisabled() ? "Question limit reached" : (props.placeholder || "Ask a question...")}
+                    placeholder={quotaDisabled() ? (isRateLimited() && countdown() ? `Available in ${countdown()}` : "Question limit reached") : (props.placeholder || "Ask a question...")}
                     disabled={props.disabled || submitting() || quotaDisabled()}
                     maxLength={MAX_QUESTION_LENGTH}
                     rows={1}

@@ -203,8 +203,8 @@ AskMeAnythi.ng/
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | `GET` | `/api/questions/session/:sessionId` | — | Get question list (filter, sort, paginate) |
-| `GET` | `/api/questions/session/:sessionId/quota` | Visitor | Get current visitor's question quota |
-| `POST` | `/api/questions/session/:sessionId` | Visitor | Create question (quota limited: 403=total exceeded, 429=rate exceeded) |
+| `GET` | `/api/questions/session/:sessionId/quota` | Visitor | Get current visitor's question quota (includes `nextAllowedAt` epoch ms when rate-limited) |
+| `POST` | `/api/questions/session/:sessionId` | Visitor | Create question (quota limited: 403=total exceeded, 429=rate exceeded with `nextAllowedAt`) |
 | `PATCH` | `/api/questions/:id` | Admin | Update question status/pin |
 | `DELETE` | `/api/questions/:id` | Admin | Delete question |
 
