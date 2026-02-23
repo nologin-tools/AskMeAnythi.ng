@@ -58,7 +58,7 @@ database_id = "c98648ff-3ac8-4569-ab46-c6ba1e356372"
 
 [[env.production.kv_namespaces]]
 binding = "CACHE"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "6ee3765161684def887c01ada9bc4e3d"
 
 [env.production.triggers]
 crons = ["0 3 * * *"]
