@@ -73,7 +73,6 @@ export const WS_MAX_RECONNECT_ATTEMPTS = 10;
 
 // Report reasons
 export const VALID_REPORT_REASONS = ['spam', 'offensive', 'inappropriate', 'other'] as const;
-export type ReportReason = typeof VALID_REPORT_REASONS[number];
 export const AUTO_HIDE_REPORT_THRESHOLD = 3;
 export const MAX_REPORT_DESCRIPTION_LENGTH = 500;
 
