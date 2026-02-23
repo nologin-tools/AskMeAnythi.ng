@@ -37,11 +37,15 @@ port = 8787
 # Production environment
 [env.production]
 vars = { ENVIRONMENT = "production" }
+routes = [
+  { pattern = "askmeanythi.ng/api/*", zone_name = "askmeanythi.ng" },
+  { pattern = "askmeanythi.ng/ws/*", zone_name = "askmeanythi.ng" }
+]
 
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "askmeanything-db"
-database_id = "your-production-database-id"
+database_id = "c98648ff-3ac8-4569-ab46-c6ba1e356372"
 
 [env.production.triggers]
 crons = ["0 3 * * *"]

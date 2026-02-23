@@ -25,7 +25,8 @@ pnpm --filter web dev       # 仅启动前端
 
 # 构建和部署
 pnpm build                  # 构建所有应用
-pnpm --filter api deploy    # 部署 API 到 Cloudflare
+pnpm --filter api deploy    # 部署 API 到 Cloudflare（手动）
+# 自动部署：push to main 触发 GitHub Actions（见 .github/workflows/ci-deploy.yml）
 
 # 数据库
 pnpm db:migrate             # 本地数据库迁移（全量）
@@ -41,6 +42,9 @@ pnpm lint                   # 全量 TypeScript 类型检查
 
 ```
 AskMeAnythi.ng/
+├── .github/
+│   └── workflows/
+│       └── ci-deploy.yml             # GitHub Actions CI/CD 工作流
 ├── apps/
 │   ├── api/                          # 后端 API (Cloudflare Workers)
 │   │   ├── src/
@@ -257,6 +261,36 @@ AskMeAnythi.ng/
 - **错误处理**：生产环境不泄露内部错误信息，JSON 解析失败返回 400
 - **WebSocket 安全**：连接前验证 session 存在且未过期
 - **定时清理**：使用 `DB.batch()` 原子清理，分批处理防止参数溢出（每批 50 个）
+
+## 部署
+
+### 部署架构
+
+```
+askmeanythi.ng (同一域名)
+├── /api/*  → Cloudflare Workers (Workers Routes)
+├── /ws/*   → Cloudflare Workers (Workers Routes)
+└── /*      → Cloudflare Pages   (静态前端)
+```
+
+Workers Routes 优先级高于 Pages，`/api/*` 和 `/ws/*` 路由到 Worker，其余由 Pages 处理。
+
+### GitHub Actions（`.github/workflows/ci-deploy.yml`）
+
+| Job | 触发条件 | 说明 |
+|-----|---------|------|
+| `check` | PR + push to main | Lint (`pnpm lint`) + Build (`pnpm build`) |
+| `deploy-api` | push to main | D1 迁移 + Workers 部署（`--env production`） |
+| `deploy-web` | push to main | Pages 部署（复用 check 构建产物） |
+
+`deploy-api` 和 `deploy-web` 并行执行，均依赖 `check` 通过。
+
+### GitHub Secrets
+
+| Secret | 说明 |
+|--------|------|
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API Token（需要 Workers Scripts、D1、Pages、Workers Routes 权限） |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare 账户 ID |
 
 ## 环境要求
 
