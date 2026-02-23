@@ -62,7 +62,8 @@ AskMeAnythi.ng/
 │   │   │   ├── utils/
 │   │   │   │   ├── auth.ts           # Shared admin token verification
 │   │   │   │   ├── turnstile.ts      # Cloudflare Turnstile verification
-│   │   │   │   └── fingerprint.ts    # Server-side visitor fingerprint
+│   │   │   │   ├── fingerprint.ts    # Server-side visitor fingerprint
+│   │   │   │   └── content-filter.ts # Spam/abuse content filter
 │   │   │   ├── routes/               # API routes
 │   │   │   │   ├── sessions.ts       # Session CRUD
 │   │   │   │   ├── questions.ts      # Question CRUD
@@ -302,6 +303,7 @@ AskMeAnythi.ng/
 - **IP-based rate limiting**: Global (60 req/min), session creation (10/hour), votes/reactions (30/min). Uses SHA-256 hashed IP (never stores raw IPs). KV-based with fixed time windows and auto-expiring TTL
 - **Turnstile CAPTCHA**: Session creation requires Cloudflare Turnstile verification in production (skipped in dev or if `TURNSTILE_SECRET_KEY` not set). Frontend uses `VITE_TURNSTILE_SITE_KEY` env var
 - **Server-side fingerprint**: Questions store `author_fp` (SHA-256 of IP + User-Agent). Quota checks use `MAX(visitorId count, fingerprint count)` to prevent bypass by changing localStorage visitor ID
+- **Content filter**: Blocks obvious spam patterns: 3+ URLs, 20+ repeated chars, >80% caps (50+ chars), 10+ repeated words
 
 ## Deployment
 

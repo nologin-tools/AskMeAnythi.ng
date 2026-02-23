@@ -20,6 +20,7 @@ import type {
 } from '@askmeanything/shared';
 import { verifyAdminToken } from '../utils/auth';
 import { generateFingerprint } from '../utils/fingerprint';
+import { filterContent } from '../utils/content-filter';
 
 export const questionsRouter = new Hono<{ Bindings: Env }>();
 
@@ -342,6 +343,15 @@ questionsRouter.post('/session/:sessionId', async (c) => {
     return c.json<ApiResponse<null>>({
       success: false,
       error: `Author name must not exceed ${MAX_AUTHOR_NAME_LENGTH} characters`,
+    }, 400);
+  }
+
+  // Content filter check
+  const filterResult = filterContent(body.content);
+  if (filterResult.blocked) {
+    return c.json<ApiResponse<null>>({
+      success: false,
+      error: filterResult.reason || 'Content rejected by filter',
     }, 400);
   }
 
