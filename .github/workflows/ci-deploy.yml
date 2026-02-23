@@ -45,11 +45,28 @@ jobs:
       - name: Run D1 migrations
         working-directory: apps/api
         run: |
+          run_migration() {
+            local file="$1"
+            local output
+            if output=$(npx wrangler d1 execute askmeanything-db --remote --env production --file="$file" 2>&1); then
+              echo "✅ Applied: $file"
+            elif echo "$output" | grep -q "duplicate column name"; then
+              echo "⏭️  Already applied (duplicate column): $file"
+            else
+              echo "❌ Failed: $file"
+              echo "$output"
+              exit 1
+            fi
+          }
+
+          # Base schema (idempotent via IF NOT EXISTS)
           npx wrangler d1 execute askmeanything-db --remote --env production --file=./src/db/schema.sql
-          npx wrangler d1 execute askmeanything-db --remote --env production --file=./src/db/0001_add_question_limits.sql
-          npx wrangler d1 execute askmeanything-db --remote --env production --file=./src/db/0002_add_rate_limits.sql
-          npx wrangler d1 execute askmeanything-db --remote --env production --file=./src/db/0003_add_server_fingerprint.sql
-          npx wrangler d1 execute askmeanything-db --remote --env production --file=./src/db/0004_add_reports.sql
+
+          # Incremental migrations (safe to re-run)
+          run_migration ./src/db/0001_add_question_limits.sql
+          run_migration ./src/db/0002_add_rate_limits.sql
+          run_migration ./src/db/0003_add_server_fingerprint.sql
+          run_migration ./src/db/0004_add_reports.sql
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

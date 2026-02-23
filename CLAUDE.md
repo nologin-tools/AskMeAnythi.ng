@@ -74,7 +74,7 @@ AskMeAnythi.ng/
 │   │   │   ├── durable-objects/
 │   │   │   │   └── session-room.ts   # WebSocket Durable Object
 │   │   │   └── db/
-│   │   │       ├── schema.sql        # D1 database schema
+│   │   │       ├── schema.sql        # D1 database schema (complete canonical schema)
 │   │   │       ├── 0001_add_question_limits.sql  # Question limits migration
 │   │   │       ├── 0002_add_rate_limits.sql      # IP rate limits migration
 │   │   │       ├── 0003_add_server_fingerprint.sql  # Server fingerprint migration
@@ -327,6 +327,12 @@ Workers Routes have higher priority than Pages. `/api/*` and `/ws/*` route to Wo
 | `deploy-web` | push to main | Pages deployment (reuses check build artifacts) |
 
 `deploy-api` and `deploy-web` run in parallel, both depend on `check` passing.
+
+**Database Migration Strategy**:
+- `schema.sql` is the complete canonical schema — it contains ALL tables and columns for fresh databases
+- Incremental migration files (`0001_*.sql` ~ `0004_*.sql`) handle `ALTER TABLE` changes for existing databases
+- CI runs both: schema.sql first (idempotent via `IF NOT EXISTS`), then migrations with error handling that safely skips "duplicate column" errors from already-applied `ALTER TABLE` statements
+- When adding new schema changes: create a new migration file AND update `schema.sql` to stay in sync
 
 ### GitHub Secrets
 
