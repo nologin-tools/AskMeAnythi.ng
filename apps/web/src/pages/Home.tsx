@@ -19,6 +19,7 @@ declare global {
         theme?: 'light' | 'dark' | 'auto';
         size?: 'normal' | 'compact' | 'invisible';
       }) => string;
+      execute: (widgetId: string) => void;
       reset: (widgetId: string) => void;
       remove: (widgetId: string) => void;
     };
@@ -45,11 +46,23 @@ const Home: Component = () => {
       if (turnstileContainer && window.turnstile) {
         turnstileWidgetId = window.turnstile.render(turnstileContainer, {
           sitekey: TURNSTILE_SITE_KEY,
-          callback: (token: string) => setTurnstileToken(token),
+          callback: (token: string) => {
+            setTurnstileToken(token);
+            // If user already clicked the button, proceed with session creation
+            if (creating()) {
+              doCreateSession(token);
+            }
+          },
           'expired-callback': () => setTurnstileToken(null),
-          'error-callback': () => setTurnstileToken(null),
+          'error-callback': () => {
+            setTurnstileToken(null);
+            if (creating()) {
+              setError('Verification failed. Please try again.');
+              setCreating(false);
+            }
+          },
           theme: 'light',
-          size: 'normal',
+          size: 'invisible',
         });
       }
     };
@@ -65,18 +78,10 @@ const Home: Component = () => {
     });
   });
 
-  const handleCreate = async () => {
-    if (TURNSTILE_SITE_KEY && !turnstileToken()) {
-      setError('Please complete the verification first.');
-      return;
-    }
-
-    setCreating(true);
-    setError(null);
-
+  const doCreateSession = async (token?: string) => {
     try {
       const result = await createSession({
-        turnstileToken: turnstileToken() || undefined,
+        turnstileToken: token || undefined,
       });
       setAdminToken(result.session.id, result.adminToken);
       navigate(`/s/${result.session.id}/admin`);
@@ -90,6 +95,22 @@ const Home: Component = () => {
         setTurnstileToken(null);
       }
     }
+  };
+
+  const handleCreate = async () => {
+    setCreating(true);
+    setError(null);
+
+    const token = turnstileToken();
+    if (TURNSTILE_SITE_KEY && !token) {
+      // No token yet — trigger invisible Turnstile; callback will call doCreateSession
+      if (turnstileWidgetId && window.turnstile) {
+        window.turnstile.execute(turnstileWidgetId);
+      }
+      return;
+    }
+
+    await doCreateSession(token || undefined);
   };
 
   return (
@@ -119,14 +140,14 @@ const Home: Component = () => {
           </p>
 
           <div class="flex flex-col items-center gap-4 animate-slide-up" style={{ "animation-delay": "0.2s" }}>
-            {/* Turnstile verification widget */}
+            {/* Turnstile invisible widget container */}
             {TURNSTILE_SITE_KEY && (
-              <div ref={turnstileContainer} class="mb-2" />
+              <div ref={turnstileContainer} class="hidden" />
             )}
 
             <button
               onClick={handleCreate}
-              disabled={creating() || (!!TURNSTILE_SITE_KEY && !turnstileToken())}
+              disabled={creating()}
               class="group h-14 px-8 rounded-full bg-black text-white text-lg font-medium hover:scale-105 hover:shadow-2xl transition-all duration-300 disabled:opacity-70 disabled:hover:scale-100 flex items-center gap-3"
             >
               {creating() ? (
