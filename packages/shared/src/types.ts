@@ -124,6 +124,31 @@ export interface CreateReactionRequest {
   emoji: string;
 }
 
+// Report types
+export type ReportReason = 'spam' | 'offensive' | 'inappropriate' | 'other';
+export type ReportStatus = 'pending' | 'reviewed' | 'dismissed';
+export type ReportTargetType = 'question' | 'answer';
+
+export interface Report {
+  id: string;
+  targetType: ReportTargetType;
+  targetId: string;
+  sessionId: string;
+  reporterId: string;
+  reason: ReportReason;
+  description?: string;
+  status: ReportStatus;
+  createdAt: number;
+}
+
+export interface CreateReportRequest {
+  targetType: ReportTargetType;
+  targetId: string;
+  sessionId: string;
+  reason: ReportReason;
+  description?: string;
+}
+
 // WebSocket 事件类型
 export type WSEventType =
   | 'question_added'

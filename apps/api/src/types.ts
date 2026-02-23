@@ -56,6 +56,18 @@ export interface VoteRow {
   created_at: number;
 }
 
+export interface ReportRow {
+  id: string;
+  target_type: string;
+  target_id: string;
+  session_id: string;
+  reporter_id: string;
+  reason: string;
+  description: string | null;
+  status: string;
+  created_at: number;
+}
+
 export interface ReactionRow {
   id: string;
   target_type: string;

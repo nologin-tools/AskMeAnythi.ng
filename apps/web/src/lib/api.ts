@@ -12,6 +12,8 @@ import type {
   ReactionSummary,
   ApiResponse,
   VisitorQuotaInfo,
+  Report,
+  CreateReportRequest,
 } from '@askmeanything/shared';
 import { getVisitorId, getAdminToken } from './storage';
 
@@ -225,4 +227,25 @@ export async function toggleReaction(data: CreateReactionRequest): Promise<{ add
 
 export async function getReactions(targetType: string, targetId: string): Promise<ReactionSummary[]> {
   return request<ReactionSummary[]>(`/reactions/${targetType}/${targetId}`);
+}
+
+// ====== Reports ======
+
+export async function submitReport(data: CreateReportRequest): Promise<Report> {
+  return request<Report>('/reports', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getReports(sessionId: string, status?: string): Promise<Report[]> {
+  const query = status ? `?status=${status}` : '';
+  return adminRequest<Report[]>(`/reports/session/${sessionId}${query}`, sessionId);
+}
+
+export async function updateReportStatus(id: string, sessionId: string, status: string): Promise<{ updated: true }> {
+  return adminRequest<{ updated: true }>(`/reports/${id}`, sessionId, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
 }

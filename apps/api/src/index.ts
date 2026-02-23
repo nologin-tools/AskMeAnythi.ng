@@ -7,6 +7,7 @@ import { questionsRouter } from './routes/questions';
 import { answersRouter } from './routes/answers';
 import { votesRouter } from './routes/votes';
 import { reactionsRouter } from './routes/reactions';
+import { reportsRouter } from './routes/reports';
 import { handleScheduled } from './scheduled';
 import { rateLimit } from './middleware/rate-limit';
 
@@ -45,6 +46,7 @@ app.route('/api/questions', questionsRouter);
 app.route('/api/answers', answersRouter);
 app.route('/api/votes', votesRouter);
 app.route('/api/reactions', reactionsRouter);
+app.route('/api/reports', reportsRouter);
 
 // WebSocket 升级路由
 app.get('/ws/:sessionId', async (c) => {

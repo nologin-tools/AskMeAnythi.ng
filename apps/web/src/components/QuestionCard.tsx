@@ -1,12 +1,14 @@
 import { Component, Show, createSignal, For } from 'solid-js';
-import type { Question } from '@askmeanything/shared';
+import type { Question, ReportReason } from '@askmeanything/shared';
 import Avatar from './Avatar';
 import { renderSimpleMarkdown, renderMarkdown } from '../lib/markdown';
 import { formatRelativeTime } from '../lib/time';
-import { QUICK_REACTIONS, COMMON_EMOJIS } from '@askmeanything/shared';
+import { QUICK_REACTIONS, COMMON_EMOJIS, VALID_REPORT_REASONS } from '@askmeanything/shared';
+import { submitReport } from '../lib/api';
 
 interface QuestionCardProps {
   question: Question;
+  sessionId: string;
   isAdmin?: boolean;
   onVote?: (questionId: string) => void;
   onReaction?: (questionId: string, emoji: string) => void;
@@ -18,8 +20,41 @@ interface QuestionCardProps {
   onDelete?: (questionId: string) => void;
 }
 
+const REASON_LABELS: Record<string, string> = {
+  spam: 'Spam',
+  offensive: 'Offensive',
+  inappropriate: 'Inappropriate',
+  other: 'Other',
+};
+
 const QuestionCard: Component<QuestionCardProps> = (props) => {
   const [showReactions, setShowReactions] = createSignal(false);
+  const [showReportModal, setShowReportModal] = createSignal(false);
+  const [reportReason, setReportReason] = createSignal<ReportReason>('spam');
+  const [reportDescription, setReportDescription] = createSignal('');
+  const [reportSubmitting, setReportSubmitting] = createSignal(false);
+  const [reportError, setReportError] = createSignal<string | null>(null);
+  const [reported, setReported] = createSignal(false);
+
+  const handleReport = async () => {
+    setReportSubmitting(true);
+    setReportError(null);
+    try {
+      await submitReport({
+        targetType: 'question',
+        targetId: props.question.id,
+        sessionId: props.sessionId,
+        reason: reportReason(),
+        description: reportDescription() || undefined,
+      });
+      setReported(true);
+      setShowReportModal(false);
+    } catch (err: any) {
+      setReportError(err.message || 'Failed to submit report');
+    } finally {
+      setReportSubmitting(false);
+    }
+  };
 
   const handleVote = () => {
     props.onVote?.(props.question.id);
@@ -152,8 +187,79 @@ const QuestionCard: Component<QuestionCardProps> = (props) => {
               </Show>
             </div>
           </div>
+
+          {/* Report button (non-admin only) */}
+          <Show when={!props.isAdmin && !reported()}>
+            <button
+              onClick={() => setShowReportModal(true)}
+              class="ml-auto w-8 h-8 flex items-center justify-center rounded-full text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
+              title="Report"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+              </svg>
+            </button>
+          </Show>
+          <Show when={reported()}>
+            <span class="ml-auto text-xs text-gray-400">Reported</span>
+          </Show>
         </div>
       </div>
+
+      {/* Report Modal */}
+      <Show when={showReportModal()}>
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowReportModal(false)}>
+          <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 class="text-lg font-semibold mb-4">Report Question</h3>
+
+            <div class="space-y-2 mb-4">
+              <For each={[...VALID_REPORT_REASONS]}>
+                {(reason) => (
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="report-reason"
+                      value={reason}
+                      checked={reportReason() === reason}
+                      onChange={() => setReportReason(reason)}
+                      class="accent-black"
+                    />
+                    <span class="text-sm">{REASON_LABELS[reason] || reason}</span>
+                  </label>
+                )}
+              </For>
+            </div>
+
+            <textarea
+              value={reportDescription()}
+              onInput={(e) => setReportDescription(e.currentTarget.value)}
+              placeholder="Additional details (optional)"
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none h-20 focus:outline-none focus:border-gray-400 mb-4"
+              maxLength={500}
+            />
+
+            <Show when={reportError()}>
+              <p class="text-sm text-red-500 mb-3">{reportError()}</p>
+            </Show>
+
+            <div class="flex gap-2 justify-end">
+              <button
+                onClick={() => setShowReportModal(false)}
+                class="px-4 py-2 text-sm text-gray-500 hover:text-gray-900 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReport}
+                disabled={reportSubmitting()}
+                class="px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
+              >
+                {reportSubmitting() ? 'Submitting...' : 'Submit Report'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Show>
 
       {/* Admin Controls - Overlay on Hover or Always Visible if mobile */}
       <Show when={props.isAdmin}>

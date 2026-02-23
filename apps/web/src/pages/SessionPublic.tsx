@@ -184,6 +184,7 @@ const SessionPublic: Component = () => {
                 {(question) => (
                   <QuestionCard
                     question={question}
+                    sessionId={params.id}
                     onVote={handleVote}
                     onReaction={handleReaction}
                   />

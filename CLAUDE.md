@@ -37,6 +37,8 @@ pnpm --filter api db:migrate:rate-limits  # Local: rate limits migration
 pnpm --filter api db:migrate:rate-limits:remote  # Remote: rate limits migration
 pnpm --filter api db:migrate:fingerprint  # Local: server fingerprint migration
 pnpm --filter api db:migrate:fingerprint:remote  # Remote: server fingerprint migration
+pnpm --filter api db:migrate:reports  # Local: reports migration
+pnpm --filter api db:migrate:reports:remote  # Remote: reports migration
 
 # Checks
 pnpm lint                   # Full TypeScript type checking
@@ -66,14 +68,16 @@ AskMeAnythi.ng/
 │   │   │   │   ├── questions.ts      # Question CRUD
 │   │   │   │   ├── answers.ts        # Answer CRUD
 │   │   │   │   ├── votes.ts          # Voting
-│   │   │   │   └── reactions.ts      # Emoji reactions
+│   │   │   │   ├── reactions.ts      # Emoji reactions
+│   │   │   │   └── reports.ts        # Content reporting
 │   │   │   ├── durable-objects/
 │   │   │   │   └── session-room.ts   # WebSocket Durable Object
 │   │   │   └── db/
 │   │   │       ├── schema.sql        # D1 database schema
 │   │   │       ├── 0001_add_question_limits.sql  # Question limits migration
 │   │   │       ├── 0002_add_rate_limits.sql      # IP rate limits migration
-│   │   │       └── 0003_add_server_fingerprint.sql  # Server fingerprint migration
+│   │   │       ├── 0003_add_server_fingerprint.sql  # Server fingerprint migration
+│   │   │       └── 0004_add_reports.sql          # Reports table migration
 │   │   └── wrangler.toml             # Workers configuration
 │   │
 │   └── web/                          # Frontend app (SolidJS)
@@ -146,6 +150,7 @@ AskMeAnythi.ng/
 | **Answer** | Admin's answer to a question | One answer per question max, supports Markdown |
 | **Vote** | Question upvote | One vote per visitor per question, toggleable |
 | **Reaction** | Emoji reaction | Target type: `question` / `answer`, toggleable |
+| **Report** | Content report | `pending` → `reviewed` / `dismissed`; 3+ pending reports auto-hide question |
 
 ### Real-time Communication
 
@@ -221,6 +226,13 @@ AskMeAnythi.ng/
 | `POST` | `/api/reactions` | Visitor | Add/remove reaction |
 | `GET` | `/api/reactions/:targetType/:targetId` | Visitor | Get all reactions for a target |
 
+**Reports**:
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `POST` | `/api/reports` | Visitor | Submit a report (rate limited: 10/hour) |
+| `GET` | `/api/reports/session/:sessionId` | Admin | Get reports list (filterable by status) |
+| `PATCH` | `/api/reports/:id` | Admin | Update report status (reviewed/dismissed) |
+
 **API response format**: `{ success: boolean, data?: T, error?: string }`
 
 ## Development Guidelines
@@ -273,6 +285,9 @@ AskMeAnythi.ng/
 | `MAX_RATE_LIMIT_COUNT` | 100 | Rate limit count upper bound |
 | `MIN_RATE_LIMIT_WINDOW` | 10 | Min rate limit window (seconds) |
 | `MAX_RATE_LIMIT_WINDOW` | 3600 | Max rate limit window (seconds) |
+| `VALID_REPORT_REASONS` | `['spam', 'offensive', 'inappropriate', 'other']` | Valid report reason enum |
+| `AUTO_HIDE_REPORT_THRESHOLD` | 3 | Auto-hide question after N reports |
+| `MAX_REPORT_DESCRIPTION_LENGTH` | 500 | Max report description length |
 
 ### Security Design
 - **SQL injection prevention**: All database queries use parameterized bindings (`bind()`)

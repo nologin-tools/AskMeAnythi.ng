@@ -503,6 +503,7 @@ const SessionAdmin: Component = () => {
                   {(question) => (
                     <QuestionCard
                       question={question}
+                      sessionId={params.id}
                       isAdmin={true}
                       onVote={handleVote}
                       onReaction={handleReaction}

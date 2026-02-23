@@ -71,6 +71,12 @@ export const WS_RECONNECT_INTERVAL = 3000;
 // WebSocket 最大重连次数
 export const WS_MAX_RECONNECT_ATTEMPTS = 10;
 
+// Report reasons
+export const VALID_REPORT_REASONS = ['spam', 'offensive', 'inappropriate', 'other'] as const;
+export type ReportReason = typeof VALID_REPORT_REASONS[number];
+export const AUTO_HIDE_REPORT_THRESHOLD = 3;
+export const MAX_REPORT_DESCRIPTION_LENGTH = 500;
+
 // API 路径
 export const API_PATHS = {
   SESSIONS: '/api/sessions',
@@ -78,6 +84,7 @@ export const API_PATHS = {
   ANSWERS: '/api/answers',
   VOTES: '/api/votes',
   REACTIONS: '/api/reactions',
+  REPORTS: '/api/reports',
 } as const;
 
 // LocalStorage Keys
